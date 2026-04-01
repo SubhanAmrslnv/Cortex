@@ -71,6 +71,8 @@ Auto-commits any staged changes with a conventional commit message derived from 
 Format: `type(scope): message`
 Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `perf`
 
+Never include `Co-Authored-By: Claude` or any Claude/Anthropic attribution in commit messages. No `🤖` emoji, no Claude profile links.
+
 ---
 
 ## Efficiency Rules
