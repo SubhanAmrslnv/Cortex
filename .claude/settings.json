@@ -58,10 +58,6 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/stop-git-autocommit.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/stop-notify.sh"
           }
         ]
       }
