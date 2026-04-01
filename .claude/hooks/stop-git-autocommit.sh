@@ -2,14 +2,14 @@
 # Automatically commits Claude's changes after each session.
 # - Stages modified tracked files only (respects .gitignore, skips untracked)
 # - Generates a conventional commit message from diff stats
-# - Skips if on main/master (force branch workflow)
+# - Skips if on main/master/develop (force branch workflow)
 
 set -uo pipefail
 
 git rev-parse --git-dir > /dev/null 2>&1 || exit 0
 
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+if [[ "$branch" == "main" || "$branch" == "master" || "$branch" == "develop" ]]; then
   echo "[autocommit] Skipped: on protected branch '$branch'"
   exit 0
 fi
