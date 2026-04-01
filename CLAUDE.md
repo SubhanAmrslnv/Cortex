@@ -85,6 +85,12 @@ Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `perf`
 
 ---
 
+## Branch Protection
+
+Never commit or push directly to `main`, `master`, or `develop` branches. Always work on a feature branch and open a pull request instead.
+
+---
+
 ## Response Format & Tone
 
 - Direct and concise — one sentence beats three
