@@ -28,7 +28,7 @@ INSTALL.md                 ← full machine setup guide
 **PreToolUse (`Bash`)** — `pre-guard.sh`
 Blocks dangerous Bash commands before they run. Checks:
 - `rm -rf`, `drop table`, `truncate`, `--force`
-- Force-push or direct commit to `main`/`master`
+- Force-push or direct commit to `main`/`master`/`develop`
 - Non-conventional commit messages
 - Staging secret files (`.env`, `.key`, `.pem`, `.pfx`)
 - `git reset --hard`, `git clean -f`
@@ -52,7 +52,7 @@ Appends every tool use to `~/.claude/audit.log`.
 Runs the project build (`dotnet build` / `npm run build`). On failure, calls Claude Haiku to fix and retries once.
 
 **Stop** — `stop-git-autocommit.sh`
-Auto-commits any staged changes with a conventional commit message derived from diff stats.
+Auto-commits any staged changes with a conventional commit message derived from diff stats. Skips on `main`, `master`, and `develop`.
 
 ---
 

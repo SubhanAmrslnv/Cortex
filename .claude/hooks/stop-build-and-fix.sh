@@ -6,7 +6,7 @@ set -uo pipefail
 
 detect_build_cmd() {
   if compgen -G "*.sln" > /dev/null 2>&1; then
-    echo "dotnet build --nologo -v q"
+    echo "msbuild *.sln /nologo /v:q /p:Configuration=Debug"
     return
   fi
   if find . -name "*.csproj" -not -path "*/obj/*" -not -path "*/bin/*" | grep -q .; then
