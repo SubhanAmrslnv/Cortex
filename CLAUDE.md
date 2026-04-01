@@ -1,116 +1,94 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working in this repository.
 
-This repository is a **Claude Code global configuration** workspace. It contains shared standards and behavior rules that apply across all projects opened under this Claude Code installation. There is no application code here — the repo exists solely to version-control Claude's working preferences.
+This repo is the **Claude Code global configuration** workspace — no application code lives here. Everything is shell scripts, JSON config, and this file. Changes here affect Claude's behavior across all projects on this machine.
+
+---
 
 ## Repository Layout
 
-- `CLAUDE.md` — this file; loaded automatically by Claude Code in every session
-- `settings.json` — hook wiring and Claude Code harness configuration
-- `hooks/` — shell scripts executed by Claude Code on tool events (see below)
+```
+CLAUDE.md                  ← this file; loaded every session
+.claude/
+  settings.json            ← hook wiring for Claude Code
+  hooks/                   ← source hook scripts (deploy to ~/.claude/hooks/)
+  commands/                ← custom slash commands
+README.md                  ← project overview and quick setup
+INSTALL.md                 ← full machine setup guide
+```
+
+> After changing any hook in `.claude/hooks/`, sync it:
+> `cp .claude/hooks/<file>.sh ~/.claude/hooks/`
+
+---
 
 ## Active Hooks
 
-**PreToolUse (Bash)** — `pre-guard.sh` (18 checks, single process)
-- Dangerous commands: `rm -rf`, `drop table`, `--force`, `truncate`
-- Force-push to `main`/`master`
-- Production DB connection strings
-- Direct `git commit` on `main`/`master`
-- Conventional commit format enforcement
-- Staging secret/credential files (`.env`, `.key`, `.pem`, `.pfx`)
+**PreToolUse (`Bash`)** — `pre-guard.sh`
+Blocks dangerous Bash commands before they run. Checks:
+- `rm -rf`, `drop table`, `truncate`, `--force`
+- Force-push or direct commit to `main`/`master`
+- Non-conventional commit messages
+- Staging secret files (`.env`, `.key`, `.pem`, `.pfx`)
 - `git reset --hard`, `git clean -f`
-- Files >1MB (excludes binaries and assets)
+- Files >1MB staged (excludes binaries/assets)
 - SQL injection patterns in CLI args
 - Writes to system directories (`/etc`, `/usr`, `/bin`, `/sys`, `/proc`)
 - `sudo` usage
-- Known exploit tools (`sqlmap`, `nmap`, `hydra`, `hashcat`, etc.)
-- Reverse shells, base64 execution, cron persistence, curl-pipe-to-shell, credential exfiltration
+- Exploit tools (`sqlmap`, `nmap`, `hydra`, `hashcat`, etc.)
+- Reverse shells, base64 execution, cron persistence, curl-pipe-to-shell
 
-**PostToolUse (Write|Edit)**
-- Auto-formats `.cs` via `dotnet format`, `.ts/.html/.scss` via Prettier, `.ts` via ESLint
-- Scans all files for hardcoded secrets (`api_key`, `password`, `token`)
-- Scans `.cs` for unsafe .NET APIs (`BinaryFormatter`, `Process.Start`, etc.)
-- Scans `.ts/.tsx/.js/.jsx` for XSS patterns (`dangerouslySetInnerHTML`, `eval()`, `innerHTML=`)
+**PostToolUse (`Write|Edit`)** — `post-format.sh`
+Auto-formats on save: `.cs` via `dotnet format`; `.ts/.html/.scss` via Prettier; `.ts` via ESLint.
 
-**PostToolUse (Write|Edit|Bash)**
-- Appends every tool use to `~/.claude/audit.log`
+**PostToolUse (`Write|Edit`)** — `post-secret-scan.sh`, `post-dotnet-security-scan.sh`, `post-react-security-scan.sh`
+Scans written files for hardcoded secrets, unsafe .NET APIs, and XSS patterns.
 
-**Stop**
-- Runs project build (`dotnet build` / `npm run build` / React Native); on failure calls Claude Haiku to fix and retries once
-- Auto-commits staged changes with a conventional commit message derived from diff stats
-- Shows a Windows desktop notification when Claude finishes
+**PostToolUse (`Write|Edit|Bash`)** — `post-audit-log.sh`
+Appends every tool use to `~/.claude/audit.log`.
+
+**Stop** — `stop-build-and-fix.sh`
+Runs the project build (`dotnet build` / `npm run build`). On failure, calls Claude Haiku to fix and retries once.
+
+**Stop** — `stop-git-autocommit.sh`
+Auto-commits any staged changes with a conventional commit message derived from diff stats.
 
 ---
 
-# Global Claude Instructions
+## Working in This Repo
+
+### Editing hooks
+- Source of truth: `.claude/hooks/`
+- Always sync to `~/.claude/hooks/` after editing — they are not symlinked
+- Test hooks manually: `bash .claude/hooks/<hook>.sh` with a sample JSON payload on stdin
+
+### Editing settings.json
+- Hook paths use `~/.claude/hooks/` (global, not project-relative)
+- After adding a new hook entry, ensure the script exists in both `.claude/hooks/` and `~/.claude/hooks/`
+
+### Conventional commits (enforced by pre-guard.sh)
+Format: `type(scope): message`
+Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `perf`
+
+---
 
 ## Efficiency Rules
 
-### Context & Reading
-- Read only the files directly relevant to the task — never speculatively read entire directories
+- Read only files directly relevant to the task
+- Batch all independent tool calls in one message
 - Use `Grep` to locate symbols before reading full files
-- If a file was already read in this session, do not re-read it unless it has changed
-- Use `Glob` for file discovery, not `Bash ls` or `find`
-
-### Tool Use
-- Batch all independent tool calls in a single message — never serialize calls that can run in parallel
-- Prefer `Edit` over `Write` for modifying existing files — only send the diff
-- Use `Grep` instead of reading entire files to check if something exists
-
-### Responses
-- Lead with the action or answer — no preamble, no restatement of the question
-- No trailing summaries of what was just done — the diff speaks for itself
-- If a task is clear, do it — do not ask for confirmation on obvious next steps
-- One sentence is better than three when both convey the same information
-
-### Decision Making
-- Make reasonable assumptions and state them briefly rather than asking clarifying questions for every detail
-- When multiple valid approaches exist, pick the most appropriate one for the stack and explain the choice in one line
-- Never retry a failed tool call with identical parameters — diagnose first
-
-### Code Changes
-- Surgical edits only — do not reformat, rename, or refactor code outside the scope of the task
-- Do not add comments, docstrings, or type annotations to code that was not changed
-- Do not introduce abstractions for one-time use cases
+- Use `Glob` for file discovery, not `ls` or `find`
+- Prefer `Edit` over `Write` — only send the diff
+- Lead with the action — no preamble, no trailing summaries
+- Make reasonable assumptions; state them in one line
 
 ---
 
-## Code Standards
-- Always use async/await — no blocking calls
-- Meaningful names: no `data`, `res`, `temp`, `obj`
-- No magic strings/numbers — use constants or enums
-- Early returns over deeply nested conditionals
-- Explicit error handling — never swallow exceptions silently
+## Response Format & Tone
 
-## Architecture Principles
-- Separation of concerns: domain logic never leaks into controllers or UI
-- Thin controllers/handlers — orchestrate, don't implement
-- Depend on abstractions (interfaces), not concrete implementations
-- SOLID, DRY, YAGNI — always
-
-## Response Format
-- Production-ready code, not toy examples
-- Explain *why*, not just *what*
-- Highlight trade-offs when multiple approaches exist
-- Point out security or performance risks if present
-- No unnecessary boilerplate or filler comments
-
-## Stack
-- Backend: .NET (C#), Node.js (TypeScript)
-- Frontend: Angular, React
-- DB: PostgreSQL, SQL Server
-- Patterns: Clean Architecture, CQRS, DDD where applicable
-
-## Tone
-- Direct and concise
-- Technical depth expected — don't over-explain basics
+- Direct and concise — one sentence beats three
+- Technical depth expected; don't over-explain basics
 - If something is a bad practice, say so clearly
-
-## Ignore
-- `**/node_modules/**`
-- `**/.nuget/**`
-- `**/packages/**`
-- `**/*.nupkg`
-- `**/bin/**`
-- `**/obj/**`
+- No boilerplate filler, no restating the question
+- Highlight security or correctness risks when present
