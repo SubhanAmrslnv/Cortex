@@ -1,33 +1,52 @@
-Perform a local Git commit with a clean conventional commit message.
+Perform a local Git commit following strict interactive branch and message rules.
 
-## 1. Check branch
+## Step 1 — Detect current branch
 
 Run: `git rev-parse --abbrev-ref HEAD`
 
-If the branch is `main`, `master`, or `develop`:
-- Stop immediately
-- Respond: "Commit blocked on protected branch"
-
-## 2. Check for staged or modified changes
+## Step 2 — Check for changes
 
 Run: `git status --short`
 
 If there are no changes (working tree clean and nothing staged):
-- Stop immediately
 - Respond: "Nothing to commit — working tree is clean"
+- Stop.
 
-## 3. Stage changes
+## Step 3 — Branch routing
 
-Run: `git add -u` to stage all modifications to tracked files.
+### CASE A — Protected branch (main, master, develop)
 
-Do NOT stage untracked files unless the user explicitly listed them.
+If the current branch is `main`, `master`, or `develop`:
 
-## 4. Generate commit message
+Ask the user:
+"You are on a protected branch (main/master/develop). Please enter a new branch name:"
 
-Run: `git diff --cached --stat` and `git diff --cached --name-only` to inspect what is staged.
+Wait for explicit user input. Do NOT:
+- Auto-generate a branch name
+- Suggest a branch name
+- Proceed until the user provides one
 
-Derive the commit type from the nature of the changes:
-- `feat` — new functionality
+Then ask:
+"Please enter commit message:"
+
+Wait for explicit user input. Do NOT proceed until a non-empty message is provided.
+
+Once both are provided:
+1. Run: `git checkout -b <branch-name>`
+2. Respond: "Branch '<branch-name>' created and switched."
+3. Run: `git add -u`
+4. Proceed to Step 4 using the user-provided message.
+
+### CASE B — Safe branch
+
+If the current branch is NOT `main`, `master`, or `develop`:
+
+1. Run: `git add -u`
+2. Run: `git diff --cached --stat` and `git diff --cached --name-only`
+3. Auto-generate a commit message from the diff:
+
+Derive the commit type from what changed:
+- `feat` — new functionality added
 - `fix` — bug fix or correction
 - `refactor` — restructuring without behavior change
 - `docs` — documentation only
@@ -36,16 +55,22 @@ Derive the commit type from the nature of the changes:
 - `test` — test additions or fixes
 - `perf` — performance improvement
 
-Format: `<type>: <short summary>`
+Format: `<type>: <short specific summary>`
 
 Rules:
-- Summary must be specific to the actual diff — no vague words like "update", "fix stuff", "changes"
+- Summary must reflect the actual diff — no vague words like "update", "fix stuff", "changes"
 - No trailing period
 - No Claude attribution, no emoji
-- 72 characters max for the subject line
+- 72 characters max
 
-## 5. Commit
+Show the generated message to the user:
+"Generated commit message: '<message>'"
 
-Run: `git commit -m "<generated message>"`
+Proceed to Step 4 using the generated message.
 
-Confirm success by printing the commit hash and message.
+## Step 4 — Commit
+
+Run: `git commit -m "<message>"`
+
+On success, respond:
+"Commit created successfully on '<branch-name>' with message: '<message>'"
