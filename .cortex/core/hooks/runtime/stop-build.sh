@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 1.0.0
+# @version: 1.1.0
 # Stop hook — detects project type, runs the build, and reports failures.
 # Does NOT auto-fix. On failure: print errors, suggest manual review, exit 1.
 
@@ -32,7 +32,7 @@ if [[ -z "${build_cmd:-}" ]]; then
 fi
 
 echo "[build] Running: $build_cmd"
-build_output=$(eval "$build_cmd" 2>&1)
+build_output=$(bash -c "$build_cmd" 2>&1)
 build_exit=$?
 
 if [[ $build_exit -eq 0 ]]; then

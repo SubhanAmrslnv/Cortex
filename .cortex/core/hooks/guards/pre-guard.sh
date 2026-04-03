@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# @version: 1.0.0
+# @version: 1.1.0
 # PreToolUse guard — one process, one jq parse, all checks in sequence.
 # Blocks dangerous Bash commands before they run.
 
+command -v jq &>/dev/null || { echo "BLOCKED: jq not found — install jq to enable pre-guard"; exit 1; }
 cmd=$(echo "$TOOL_INPUT" | jq -r '.command // empty')
 [[ -z "$cmd" ]] && exit 0
 
 # 1. Dangerous commands
-if echo "$cmd" | grep -qiE '(^|;|&&|\|\|)\s*(drop table|rm -rf|truncate)|--force'; then
+if echo "$cmd" | grep -qiE '(^|;|&&|\|\|)\s*(drop table|rm -rf|truncate|.*--force)'; then
   echo "BLOCKED: dangerous command detected"
   exit 1
 fi
@@ -47,7 +48,7 @@ if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git commit'; then
 
   # 7. Enforce conventional commit format
   if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git commit.*-m'; then
-    msg=$(echo "$cmd" | grep -oP '(?<=-m ["'"'"'])[^"'"'"']+' | head -1)
+    msg=$(echo "$cmd" | sed -n "s/.*-m [\"']\([^\"']*\).*/\1/p" | head -1)
     if [[ -n "$msg" ]] && ! echo "$msg" | grep -qE '^(feat|fix|chore|docs|refactor|test|ci|build|perf|style)(\(.+\))?: .+'; then
       echo "BLOCKED: commit message must follow conventional commits — e.g. feat(auth): add JWT refresh"
       exit 1

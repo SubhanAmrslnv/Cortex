@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# @version: 2.0.0
+# @version: 2.1.0
 # PostToolUse scanner — pure dispatcher. All extension→scanner mappings live in
 # .cortex/registry/scanners.json. No language-specific logic in this file.
 # Reads CORTEX_ROOT from ~/.claude/cortex.env set by /init.
 
 source ~/.claude/cortex.env 2>/dev/null || { echo "[cortex] cortex.env not found — run /init"; exit 0; }
+command -v jq &>/dev/null || { echo "[cortex] jq not found — security scan skipped"; exit 0; }
 
 file=$(echo "$TOOL_INPUT" | jq -r '.file_path // empty')
 [[ -z "$file" || ! -f "$file" ]] && exit 0

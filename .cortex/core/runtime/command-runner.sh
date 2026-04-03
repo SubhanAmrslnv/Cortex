@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 1.0.0
+# @version: 1.1.0
 # command-runner.sh — registry-driven command dispatcher.
 # Usage: command-runner.sh <command-name>
 #        command-runner.sh --list
@@ -10,6 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CORTEX_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 REGISTRY="$CORTEX_ROOT/.cortex/registry/commands.json"
 COMMANDS_DIR="$CORTEX_ROOT/.cortex/commands"
+
+command -v jq &>/dev/null || { echo "ERROR: jq not found — install jq to enable command registry"; exit 1; }
 
 if [[ ! -f "$REGISTRY" ]]; then
   echo "ERROR: Registry not found: $REGISTRY" >&2
