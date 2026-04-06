@@ -5,6 +5,35 @@ Covers intelligent prompt optimization, session profiling, risk-scored security 
 
 ---
 
+## Prerequisites
+
+| Tool | Required | Purpose |
+|---|---|---|
+| `jq` | **Yes** | JSON parsing in every hook — without it all hooks silently no-op |
+| `bash` 4.0+ | Yes | All hook scripts |
+| `node` 16+ | Yes | `post-code-intel.js` code intelligence |
+| `git` | Yes | Branch detection, commit guard |
+| [Claude Code](https://claude.ai/code) | Yes | Hook and command runtime |
+
+**Install `jq`:**
+```bash
+# macOS
+brew install jq
+
+# Ubuntu/Debian
+sudo apt install jq
+
+# Windows — Scoop (recommended)
+scoop install jq
+
+# Windows — winget
+winget install jqlang.jq
+```
+
+Verify: `jq --version`
+
+---
+
 ## Repository Layout
 
 ```

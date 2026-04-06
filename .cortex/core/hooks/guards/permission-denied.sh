@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# @version: 1.0.0
+# @version: 1.1.0
 # PermissionDenied hook — analyzes a denied command, infers the denial reason,
 # generates a safe alternative, and decides whether a retry is appropriate.
 # Always exits 0; never executes anything.
 
 command -v jq &>/dev/null || exit 0
 
-cmd=$(echo "$TOOL_INPUT" | jq -r '.command // empty' 2>/dev/null)
-provided_reason=$(echo "$TOOL_INPUT" | jq -r '.reason // empty' 2>/dev/null)
+input=$(cat)
+cmd=$(echo "$input"             | jq -r '.command // empty' 2>/dev/null)
+provided_reason=$(echo "$input" | jq -r '.reason // empty'  2>/dev/null)
 
 [[ -z "$cmd" ]] && exit 0
 

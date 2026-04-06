@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# @version: 1.0.0
+# @version: 1.1.0
 # PermissionRequest hook — analyzes a pending tool execution and outputs a
 # structured explanation so the user can make an informed approval decision.
 # Never blocks (always exits 0); only enriches the approval prompt.
 
 command -v jq &>/dev/null || exit 0
 
-tool=$(echo "$TOOL_INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-cmd=$(echo "$TOOL_INPUT" | jq -r '.command // empty' 2>/dev/null)
+input=$(cat)
+tool=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null)
+cmd=$(echo "$input"  | jq -r '.command // empty'   2>/dev/null)
 
 # Fallback: TOOL_NAME env var set by Claude Code
 [[ -z "$tool" ]] && tool="${TOOL_NAME:-Bash}"

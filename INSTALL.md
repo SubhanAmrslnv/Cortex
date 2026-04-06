@@ -20,9 +20,19 @@ brew install jq
 # Ubuntu/Debian
 sudo apt install jq
 
-# Windows (Git Bash / Scoop)
+# Windows — Scoop (recommended)
 scoop install jq
+
+# Windows — winget
+winget install jqlang.jq
+
+# Windows — Chocolatey
+choco install jq
 ```
+
+Verify: `jq --version` — expected output: `jq-1.7.x` or later.
+
+> **Note:** `jq` is required by every hook. Without it all security scanning, formatting, and guard logic silently no-ops on every tool invocation.
 
 ---
 

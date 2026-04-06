@@ -4,11 +4,11 @@
     "source": "core/hooks/guards/pre-guard.sh"
   },
   "permission-request.sh": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "source": "core/hooks/guards/permission-request.sh"
   },
   "permission-denied.sh": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "source": "core/hooks/guards/permission-denied.sh"
   },
   "post-format.sh": {
@@ -28,7 +28,7 @@
     "source": "core/hooks/runtime/prompt-optimizer.sh"
   },
   "session-start.sh": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "source": "core/hooks/runtime/session-start.sh"
   },
   "post-code-intel.js": {

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# @version: 1.0.0
+# @version: 1.1.0
 # SessionStart initializer — detects project type, extracts metadata,
 # writes .cortex/cache/project-profile.json. Idempotent via fingerprint.
 # Target: <200ms on typical repos.
 
 command -v jq &>/dev/null || exit 0
 
-cwd=$(echo "$TOOL_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+input=$(cat)
+cwd=$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)
 [[ -z "$cwd" || ! -d "$cwd" ]] && cwd=$(pwd)
 
 CACHE_DIR="$cwd/.cortex/cache"
