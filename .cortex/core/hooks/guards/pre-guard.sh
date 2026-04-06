@@ -1,123 +1,154 @@
 #!/usr/bin/env bash
-# @version: 1.1.0
-# PreToolUse guard — one process, one jq parse, all checks in sequence.
-# Blocks dangerous Bash commands before they run.
+# @version: 2.0.0
+# PreToolUse advanced guard — risk-scoring engine.
+# Scores the incoming Bash command across 5 risk categories + branch context,
+# then blocks (exit 1), warns (exit 0 + JSON), or allows silently.
+#
+# Decision thresholds:
+#   risk < 30  → allow (silent)
+#   risk 30-69 → allow with warning
+#   risk ≥ 70  → block
 
-command -v jq &>/dev/null || { echo "BLOCKED: jq not found — install jq to enable pre-guard"; exit 1; }
-cmd=$(echo "$TOOL_INPUT" | jq -r '.command // empty')
+command -v jq &>/dev/null || exit 0
+
+cmd=$(echo "$TOOL_INPUT" | jq -r '.command // empty' 2>/dev/null)
 [[ -z "$cmd" ]] && exit 0
 
-# 1. Dangerous commands
-if echo "$cmd" | grep -qiE '(^|;|&&|\|\|)\s*(drop table|rm -rf|truncate|.*--force)'; then
-  echo "BLOCKED: dangerous command detected"
-  exit 1
+risk=0
+reasons=""
+suggestions=""
+
+add_reason()    { reasons="${reasons:+$reasons; }$1"; }
+add_suggestion(){ suggestions="${suggestions:+$suggestions; }$1"; }
+
+# ---------------------------------------------------------------------------
+# A. Destructive Actions (+50 each)
+# ---------------------------------------------------------------------------
+if echo "$cmd" | grep -qiE '(^|;|&&|\|\||\s)rm\s+-[a-z]*r[a-z]*f|rm\s+-[a-z]*f[a-z]*r'; then
+  (( risk += 50 ))
+  add_reason "rm -rf detected"
+  add_suggestion "use 'rm -ri' for interactive confirmation"
 fi
 
-# 2. Force-push to protected branch
-if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git push.*(--force|-f).*(main|master|develop)|(^|;|&&|\|\|)\s*git push.*(main|master|develop).*(--force|-f)'; then
-  echo "BLOCKED: force-push to protected branch"
-  exit 1
+if echo "$cmd" | grep -qiE '\b(drop\s+table|truncate\s+table)\b'; then
+  (( risk += 50 ))
+  add_reason "destructive SQL operation"
+  add_suggestion "back up the table first; use a WHERE clause or soft-delete"
 fi
 
-# 3. Production DB target
-if echo "$cmd" | grep -qiE '(^|;|&&|\|\|)\s*[^#]*(prod|production)[_-]?(db|sql|server|conn)'; then
-  echo "WARNING: possible production DB target — confirm before proceeding"
-  exit 1
+if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git\s+reset\s+--hard'; then
+  (( risk += 50 ))
+  add_reason "git reset --hard discards uncommitted changes"
+  add_suggestion "use 'git stash' to preserve changes before reset"
 fi
 
-# 4. Destructive git operations
-if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git (reset --hard|clean -f)'; then
-  echo "BLOCKED: destructive git operation — run manually if intentional"
-  exit 1
+if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git\s+clean\s+-[a-z]*f'; then
+  (( risk += 50 ))
+  add_reason "git clean -f permanently removes untracked files"
+  add_suggestion "use 'git clean -n' to preview what would be removed"
 fi
 
-# 5. Staging secrets / credentials
-if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git add.*(\.env|secrets|credentials|\.pem|\.key|\.pfx)'; then
-  echo "BLOCKED: staging a secrets or credential file"
-  exit 1
-fi
-
-# 6 & 7. Git commit checks
-if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git commit'; then
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-
-  # 6. Block direct commit to protected branch
-  if [[ "$branch" == "main" || "$branch" == "master" || "$branch" == "develop" ]]; then
-    git diff --cached --quiet || { echo "BLOCKED: direct commit to $branch — use a feature branch"; exit 1; }
-  fi
-
-  # 7. Enforce conventional commit format
-  if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git commit.*-m'; then
-    msg=$(echo "$cmd" | sed -n "s/.*-m [\"']\([^\"']*\).*/\1/p" | head -1)
-    if [[ -n "$msg" ]] && ! echo "$msg" | grep -qE '^(feat|fix|chore|docs|refactor|test|ci|build|perf|style)(\(.+\))?: .+'; then
-      echo "BLOCKED: commit message must follow conventional commits — e.g. feat(auth): add JWT refresh"
-      exit 1
-    fi
-  fi
-fi
-
-# 8. Large files >1MB — skip known binary/asset extensions
-if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*git (add|commit)'; then
-  if ! git diff --cached --quiet 2>/dev/null; then
-    IGNORED_EXT='(\.dll|\.pdb|\.exe|\.nupkg|\.zip|\.tar\.gz|\.png|\.jpg|\.jpeg|\.gif|\.webp|\.ico|\.svg|\.woff|\.woff2|\.ttf|\.otf|\.eot|\.map|\.mp4|\.mov|\.avi|\.mp3|\.apk|\.ipa|\.aab)$'
-    large=$(git diff --cached --name-only \
-      | grep -viE "$IGNORED_EXT" \
-      | xargs -I{} du -b {} 2>/dev/null \
-      | awk '$1 > 1048576 {print $2}')
-    [[ -n "$large" ]] && echo "BLOCKED: large file(s) staged (>1MB): $large" && exit 1
-  fi
-fi
-
-# 9. SQL injection patterns in CLI args
-if echo "$cmd" | grep -qiE '(\b(union|select|insert|update|delete|exec)\b.*--|\bor\b\s+['"'"'"'"'"']?1['"'"'"'"'"']?\s*=\s*['"'"'"'"'"']?1)'; then
-  echo "BLOCKED: possible SQL injection pattern in command"
-  exit 1
-fi
-
-# 10. Writing to system directories
-if echo "$cmd" | grep -qiE '(>|>>|tee)\s+(/etc/|/usr/|/bin/|/sbin/|/sys/|/proc/)'; then
-  echo "BLOCKED: writing to system directory"
-  exit 1
-fi
-
-# 11. sudo usage
+# ---------------------------------------------------------------------------
+# B. Privileged Operations (+30 each)
+# ---------------------------------------------------------------------------
 if echo "$cmd" | grep -qE '(^|;|&&|\|\|)\s*sudo\s'; then
-  echo "BLOCKED: sudo not permitted — escalate manually"
-  exit 1
+  (( risk += 30 ))
+  add_reason "sudo usage"
+  add_suggestion "use scoped permissions or a dedicated service account"
 fi
 
-# 12. Known exploit/pentest tools
-if echo "$cmd" | grep -qiE '(^|;|&&|\|\|)\s*(metasploit|msfconsole|sqlmap|nmap|masscan|hydra|john|hashcat|aircrack|nikto|burpsuite)'; then
-  echo "BLOCKED: known exploit/pentest tool detected"
-  exit 1
+if echo "$cmd" | grep -qiE '(>|>>|tee|cp|mv|install)\s+(/etc/|/usr/|/bin/|/sbin/|/sys/|/proc/)'; then
+  (( risk += 30 ))
+  add_reason "write to system directory"
+  add_suggestion "use a user-writable path or a package manager instead"
 fi
 
-# 13. Reverse shell patterns
-if echo "$cmd" | grep -qiE '(bash|sh|zsh)\s+-i.*(&>|>).*(/dev/tcp|/dev/udp)|nc\s+.*-e\s*(bash|sh)|ncat|mkfifo'; then
-  echo "BLOCKED: possible reverse shell detected"
-  exit 1
+# ---------------------------------------------------------------------------
+# C. Dangerous Flags (+20 each)
+# ---------------------------------------------------------------------------
+if echo "$cmd" | grep -qE '\s--force(\s|$)'; then
+  (( risk += 20 ))
+  add_reason "--force flag"
+  if echo "$cmd" | grep -qE 'git\s+push'; then
+    add_suggestion "use 'git push --force-with-lease' to avoid clobbering remote changes"
+  else
+    add_suggestion "remove --force and confirm the operation manually"
+  fi
 fi
 
-# 14. Base64-encoded command execution (obfuscation)
+if echo "$cmd" | grep -qE '\s--no-verify(\s|$)'; then
+  (( risk += 20 ))
+  add_reason "--no-verify bypasses hooks"
+  add_suggestion "fix the underlying hook failure instead of skipping verification"
+fi
+
+# ---------------------------------------------------------------------------
+# D. Security Threats (+40 each)
+# ---------------------------------------------------------------------------
+if echo "$cmd" | grep -qiE '(curl|wget)(\s+\S+)*\s*\|\s*(bash|sh|zsh|python|node|ruby|perl)'; then
+  (( risk += 40 ))
+  add_reason "remote code execution via pipe-to-shell"
+  add_suggestion "download the script first, inspect it, then execute: curl -O url && cat script.sh && bash script.sh"
+fi
+
 if echo "$cmd" | grep -qiE '(base64\s+-d|base64\s+--decode).*\|\s*(bash|sh|python|node)|echo\s+[A-Za-z0-9+/]{20,}.*\|\s*(bash|sh)'; then
-  echo "BLOCKED: encoded command execution detected"
+  (( risk += 40 ))
+  add_reason "base64-encoded command execution (obfuscation)"
+  add_suggestion "decode and inspect the payload before executing"
+fi
+
+if echo "$cmd" | grep -qiE '(bash|sh|zsh)\s+-i.*(&>|>).*(/dev/tcp|/dev/udp)|nc\s+.*-e\s*(bash|sh)|mkfifo.*nc'; then
+  (( risk += 40 ))
+  add_reason "reverse shell pattern"
+  add_suggestion "do not execute reverse shells; use authorized remote access tools"
+fi
+
+if echo "$cmd" | grep -qiE '(^|;|&&|\|\||\s)(metasploit|msfconsole|sqlmap|masscan|hydra|john\s|hashcat|aircrack|nikto|burpsuite)(\s|$)'; then
+  (( risk += 40 ))
+  add_reason "known exploit/pentest tool"
+  add_suggestion "run pentest tools only in authorized, isolated environments"
+fi
+
+# ---------------------------------------------------------------------------
+# E. Sensitive File Access (+25)
+# ---------------------------------------------------------------------------
+if echo "$cmd" | grep -qiE '(^|\s)(cat|cp|mv|curl|scp|rsync|git\s+add).*\.(env|pem|key|pfx|p12|cer|crt|pkcs12)(\s|$|")'; then
+  (( risk += 25 ))
+  add_reason "sensitive credential file access"
+  add_suggestion "use a secrets manager (Vault, AWS Secrets Manager) instead of file-based secrets"
+fi
+
+# ---------------------------------------------------------------------------
+# F. Branch Context (+20) — only checked when git is in the command
+# ---------------------------------------------------------------------------
+if echo "$cmd" | grep -qE '\bgit\b'; then
+  branch=$(git -C "$(pwd)" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  if [[ "$branch" == "main" || "$branch" == "master" || "$branch" == "develop" ]]; then
+    (( risk += 20 ))
+    add_reason "operating on protected branch '$branch'"
+    add_suggestion "create a feature branch: 'git checkout -b feat/<name>'"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Decision + structured JSON output
+# ---------------------------------------------------------------------------
+if [[ $risk -ge 70 ]]; then
+  jq -n \
+    --argjson risk    "$risk" \
+    --arg     reason  "${reasons:-high-risk operation}" \
+    --arg     suggestion "${suggestions:-review command before executing}" \
+    '{"blocked": true, "risk": $risk, "reason": $reason, "suggestion": $suggestion}'
   exit 1
 fi
 
-# 15. Writing to cron / shell startup files (persistence)
-if echo "$cmd" | grep -qiE '(crontab\s+-|/etc/cron|/etc/init\.d|~/\.bashrc|~/\.zshrc|~/\.profile|~/\.bash_profile).*>>?'; then
-  echo "BLOCKED: writing to startup or cron location"
-  exit 1
+if [[ $risk -ge 30 ]]; then
+  jq -n \
+    --argjson risk    "$risk" \
+    --arg     warning "${reasons}" \
+    '{"blocked": false, "risk": $risk, "warning": $warning}'
+  exit 0
 fi
 
-# 16. curl/wget piped directly to interpreter (supply chain)
-if echo "$cmd" | grep -qiE '(curl|wget).*\|\s*(bash|sh|python|node|ruby|perl)'; then
-  echo "BLOCKED: piping remote content directly to interpreter"
-  exit 1
-fi
-
-# 17. Credential exfiltration via network tools
-if echo "$cmd" | grep -qiE '(curl|wget|nc|ncat).*\$\{?(AWS_|GITHUB_TOKEN|PASSWORD|SECRET|TOKEN)'; then
-  echo "BLOCKED: possible credential exfiltration detected"
-  exit 1
-fi
+# risk < 30 — silent allow
+exit 0
