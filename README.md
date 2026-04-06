@@ -66,7 +66,7 @@ Verify: `jq --version`
   commands/
     commit.md                         ← full commit command implementation
     doctor.md                         ← full doctor command implementation
-    init.md                           ← full init command implementation
+    init-cortex.md                    ← full init-cortex command implementation
     update-cortex.md                  ← full update-cortex command implementation
     impact.md                         ← full impact analysis command implementation
     regression.md                     ← full regression detection command implementation
@@ -243,7 +243,7 @@ To add a new language: add an entry to `scanners.json` and create the scanner sc
 
 | Command | Flags | Description |
 |---|---|---|
-| `/init` | — | Version-aware hook deployment, registry validation, settings check |
+| `/init-cortex` | — | Version-aware hook deployment, registry validation, settings check |
 | `/commit` | — | Interactive conventional commit with branch routing and auto-generated message |
 | `/doctor` | `--fix` `--deep` `--dry-run` | Full system diagnostics — checks hooks, settings, registry, scanners |
 | `/update-cortex` | — | Safely update `.cortex/base/` from remote with diff preview |
@@ -314,7 +314,7 @@ Output: structured `REGRESSION REPORT` with per-issue WHY sentences and FIX acti
 - **`base/`** — canonical framework files from the remote Cortex repo. Updated by `/update-cortex`.
 - **`local/`** — project-specific overrides. Never touched by any automated process.
 
-`/update-cortex` fetches changes, shows a diff, asks for confirmation, updates only `base/`, then re-runs `/init` to redeploy updated hooks.
+`/update-cortex` fetches changes, shows a diff, asks for confirmation, updates only `base/`, then re-runs `/init-cortex` to redeploy updated hooks.
 
 ---
 
@@ -323,6 +323,6 @@ Output: structured `REGRESSION REPORT` with per-issue WHY sentences and FIX acti
 1. Edit the source hook in `.cortex/core/hooks/`
 2. Increment `# @version: X.Y.Z` on line 2
 3. Update the version in `.cortex/registry/hooks.json`
-4. Copy `.cortex/` to `~/.cortex/` (or run `/init`)
+4. Copy `.cortex/` to `~/.cortex/` (or run `/init-cortex`)
 
-`/init` version-compares source vs runtime and deploys only what changed.
+`/init-cortex` version-compares source vs runtime and deploys only what changed.

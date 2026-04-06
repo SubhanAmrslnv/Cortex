@@ -96,9 +96,9 @@ If merge conflicts arise during any git operation: DO NOT auto-resolve. Present 
 
 ---
 
-## STEP 5 — Run /init automatically
+## STEP 5 — Run /init-cortex automatically
 
-After the base update completes, run `/init` immediately.
+After the base update completes, run `/init-cortex` immediately.
 
 Do NOT ask the user whether to run it — this is mandatory after every update.
 
@@ -122,7 +122,7 @@ Generated: <timestamp>
   .cortex/local/ preserved — untouched
 
 [HOOKS REDEPLOYED]
-  (output from /init below)
+  (output from /init-cortex below)
 ```
 
-Follow with the full /init report output.
+Follow with the full /init-cortex report output.

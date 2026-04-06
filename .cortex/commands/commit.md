@@ -40,7 +40,7 @@ TYPE: ERROR
 TITLE: Cortex system integrity check failed
 DETAILS: <specific hook or registry issue>
 WHY: committing with a broken Cortex configuration may bypass security scanning or formatting
-FIX: run /init
+FIX: run /init-cortex
 ```
 Stop. Do not proceed to commit.
 

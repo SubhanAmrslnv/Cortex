@@ -42,7 +42,7 @@ CLAUDE.md                             ← this file; loaded every session
   commands/
     commit.md                         ← full commit command implementation
     doctor.md                         ← full doctor command implementation
-    init.md                           ← full init command implementation
+    init-cortex.md                    ← full init-cortex command implementation
     update-cortex.md                  ← full update-cortex command implementation
     impact.md                         ← full impact analysis command implementation
     regression.md                     ← full regression detection command implementation
@@ -142,7 +142,7 @@ Runs directly from `.cortex/core/hooks/runtime/stop-build.sh`. Detects project t
 
 | Command | Flags | Description |
 |---|---|---|
-| `/init` | — | Version-aware hook deployment, registry validation, settings check |
+| `/init-cortex` | — | Version-aware hook deployment, registry validation, settings check |
 | `/commit` | — | Interactive conventional commit with branch routing and auto-generated message |
 | `/doctor` | `--fix` `--deep` `--dry-run` | Full system diagnostics — checks hooks, settings, registry, scanners |
 | `/update-cortex` | — | Safely update `.cortex/base/` from remote with diff preview |
@@ -162,25 +162,25 @@ Runs directly from `.cortex/core/hooks/runtime/stop-build.sh`. Detects project t
 - Source of truth: `.cortex/core/hooks/`
 - Scanners: `.cortex/core/scanners/`
 - All hooks run directly from `~/.cortex/core/hooks/` at runtime (no separate deployment directory)
-- After editing any hook or scanner, copy `.cortex/` to `~/.cortex/` or run `/init`
+- After editing any hook or scanner, copy `.cortex/` to `~/.cortex/` or run `/init-cortex`
 - Test hooks manually: `bash .cortex/core/hooks/<subpath>/<hook>.sh` with a sample JSON payload via `TOOL_INPUT` env var
 - All hooks carry a `# @version: X.Y.Z` tag on line 2 — increment when changing
 
 ### Hook versioning
 
-Hooks carry `# @version: X.Y.Z` on line 2. The registry at `.cortex/registry/hooks.json` tracks the expected version per hook. `/init` compares source vs runtime and redeploys only if source is newer.
+Hooks carry `# @version: X.Y.Z` on line 2. The registry at `.cortex/registry/hooks.json` tracks the expected version per hook. `/init-cortex` compares source vs runtime and redeploys only if source is newer.
 
 To release a hook update:
 1. Increment `# @version:` in the source file under `.cortex/core/hooks/`
 2. Update the matching version in `.cortex/registry/hooks.json`
-3. Run `/init` (or copy `.cortex/` to `~/.cortex/` manually)
+3. Run `/init-cortex` (or copy `.cortex/` to `~/.cortex/` manually)
 
 ### Adding a new hook
 
 1. Create the script under `.cortex/core/hooks/guards/` or `.cortex/core/hooks/runtime/`
 2. Add it to `.cortex/registry/hooks.json` with `version` and `source`
 3. Add its wiring entry to `.claude/settings.json` under the correct event key
-4. Run `/init`
+4. Run `/init-cortex`
 
 Hook paths in `settings.json` always use `~/.cortex/core/hooks/<subdir>/<filename>`.
 

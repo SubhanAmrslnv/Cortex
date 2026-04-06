@@ -22,7 +22,7 @@ If missing:
 ERROR: cortex.env not found
 DETAILS: ~/.claude/cortex.env does not exist
 WHY: CORTEX_ROOT cannot be resolved — all Cortex checks will fail
-FIX: run /init
+FIX: run /init-cortex
 ```
 Stop immediately.
 
@@ -59,7 +59,7 @@ TYPE: ERROR
 TITLE: Required directory missing
 DETAILS: <path> does not exist
 WHY: Cortex cannot load hooks, scanners, or commands without this directory
-FIX: run /init to restore the Cortex directory structure
+FIX: run /init-cortex to restore the Cortex directory structure
 ```
 
 ### CHECK 2 — commands.json
@@ -105,7 +105,7 @@ a. Check `source` and `version` fields exist. If either is absent:
 TYPE: ERROR
 TITLE: Malformed hooks.json entry: <key>
 DETAILS: entry is missing the '<field>' field
-WHY: /init cannot deploy this hook without a valid source path and version
+WHY: /init-cortex cannot deploy this hook without a valid source path and version
 FIX: add missing '<field>' field to the <key> entry in hooks.json
 ```
 
@@ -150,7 +150,7 @@ a. Read the source file at `$CORTEX_DIR/<source>`. Locate the line matching `^# 
 TYPE: WARNING
 TITLE: Hook missing version tag: <hook-name>
 DETAILS: $CORTEX_DIR/<source> has no '# @version: X.Y.Z' line
-WHY: /init cannot perform version-aware deployment — hook may be redeployed unnecessarily or skipped
+WHY: /init-cortex cannot perform version-aware deployment — hook may be redeployed unnecessarily or skipped
 FIX: add '# @version: X.Y.Z' on line 2 of <source>
 ```
 
@@ -160,7 +160,7 @@ TYPE: ERROR
 TITLE: Hook not deployed: <hook-name>
 DETAILS: $RUNTIME_HOOKS/<hook-name> does not exist
 WHY: Claude Code cannot invoke this hook — the event it guards is unprotected
-FIX: run /init
+FIX: run /init-cortex
 ```
 
 c. If deployed: read the runtime file's `# @version:` line. Compare source version vs runtime version (compare major, minor, patch as integers):
@@ -170,14 +170,14 @@ TYPE: ERROR
 TITLE: Hook outdated in runtime: <hook-name>
 DETAILS: source version <src_ver> is newer than deployed version <rt_ver>
 WHY: the deployed hook is running old logic — security rules or formatting may be incorrect
-FIX: run /init
+FIX: run /init-cortex
 ```
 - source < runtime:
 ```
 TYPE: WARNING
 TITLE: Runtime hook ahead of source: <hook-name>
 DETAILS: runtime version <rt_ver> is newer than source version <src_ver>
-WHY: deployed hook may contain untracked changes that will be lost on next /init
+WHY: deployed hook may contain untracked changes that will be lost on next /init-cortex
 FIX: update the source file at $CORTEX_DIR/<source> to match the runtime version, then increment the version tag
 ```
 
@@ -200,7 +200,7 @@ TYPE: ERROR
 TITLE: settings.json not found
 DETAILS: ~/.claude/settings.json does not exist
 WHY: no hooks are wired to Claude Code events — the entire Cortex runtime is inactive
-FIX: run /init
+FIX: run /init-cortex
 ```
 
 For each hook name in hooks.json, verify a `command` entry referencing `~/.claude/hooks/<hook-name>` exists in the hooks block.
@@ -351,7 +351,7 @@ Then print the summary box:
 If `--fix` was provided:
 
 For each fixable issue (those whose FIX is deterministic and safe):
-- Hook deployment issues → run `/init`
+- Hook deployment issues → run `/init-cortex`
 - Missing executable permissions → `chmod +x <file>`
 - Stale path references in settings.json → apply Edit to correct the path
 

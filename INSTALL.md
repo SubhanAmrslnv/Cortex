@@ -76,22 +76,22 @@ This folder contains only the hook wiring (`settings.json`) and thin command wra
 
 ---
 
-## 4. Run `/init`
+## 4. Run `/init-cortex`
 
 Open Claude Code in your project directory and run:
 
 ```
-/init
+/init-cortex
 ```
 
-`/init` will:
+`/init-cortex` will:
 - Write `~/.claude/cortex.env` with the resolved `CORTEX_ROOT` path (required by all hooks and commands)
 - Version-compare each hook source vs runtime, deploy only what changed
 - Validate `settings.json` wiring against the registry
 - Validate all command and scanner registries
 - Print a structured report with status per hook, command, and scanner
 
-Run `/init` after setup and again after any hook update.
+Run `/init-cortex` after setup and again after any hook update.
 
 ---
 
@@ -126,7 +126,7 @@ This command:
 2. Shows a diff of what changed
 3. Asks for confirmation before applying anything
 4. Updates only `.cortex/base/` — your overrides in `.cortex/local/` are never touched
-5. Re-runs `/init` to redeploy any updated hooks
+5. Re-runs `/init-cortex` to redeploy any updated hooks
 
 **No destructive updates.** You always see the diff before anything is applied.
 
@@ -158,7 +158,7 @@ See `README.md` for full flag reference and output format.
 
 To customize Cortex behavior for a specific project without modifying the base framework:
 
-Place your overrides in `.cortex/local/`. These files are never modified by `/update-cortex` or `/init`.
+Place your overrides in `.cortex/local/`. These files are never modified by `/update-cortex` or `/init-cortex`.
 
 ---
 

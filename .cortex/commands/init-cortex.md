@@ -1,4 +1,4 @@
-# /init — Cortex Environment Setup and Hook Deployment
+# /init-cortex — Cortex Environment Setup and Hook Deployment
 
 ## MODE DETECTION
 
@@ -21,8 +21,8 @@ If `CORTEX_ROOT` cannot be resolved (not in a Cortex repo):
 TYPE: ERROR
 TITLE: CORTEX_ROOT not resolvable
 DETAILS: the current working directory does not contain a .cortex/ folder
-WHY: /init must run from inside the Cortex repository
-FIX: cd to the Cortex repository root and re-run /init
+WHY: /init-cortex must run from inside the Cortex repository
+FIX: cd to the Cortex repository root and re-run /init-cortex
 ```
 Stop.
 
@@ -126,7 +126,7 @@ If mismatched:
 TYPE: WARNING
 TITLE: Registry version mismatch: <hook-name>
 DETAILS: hooks.json declares <registry_ver> but source file contains <source_ver>
-WHY: /init version comparison uses the registry — a mismatch causes incorrect deployment decisions
+WHY: /init-cortex version comparison uses the registry — a mismatch causes incorrect deployment decisions
 FIX: update the version field for <hook-name> in hooks.json to match the source file
 ```
 

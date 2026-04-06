@@ -181,8 +181,8 @@ For each issue in `NEW_ISSUES` and each `ESCALATED` entry in `CHANGED_ISSUES`:
 Do NOT write "possibly" or "may have". If causal evidence is absent, state the absence explicitly.
 
 **FIX**: one deterministic action (same rules as /doctor — single solution, no alternatives):
-- For hook version mismatches → `run /init`
-- For missing deployments → `run /init`
+- For hook version mismatches → `run /init-cortex`
+- For missing deployments → `run /init-cortex`
 - For new code issues → state the exact file, line, and change required
 - For escalated severity → state what changed and what to revert or patch
 
