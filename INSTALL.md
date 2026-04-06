@@ -85,7 +85,7 @@ Open Claude Code in your project directory and run:
 ```
 
 `/init` will:
-- Write `~/.claude/cortex.env` with the resolved `CORTEX_ROOT` path
+- Write `~/.claude/cortex.env` with the resolved `CORTEX_ROOT` path (required by all hooks and commands)
 - Version-compare each hook source vs runtime, deploy only what changed
 - Validate `settings.json` wiring against the registry
 - Validate all command and scanner registries
@@ -109,6 +109,8 @@ This checks:
 - All scanner scripts exist
 - `jq` and `node` are available on `$PATH`
 
+Available flags: `--fix` (auto-apply safe fixes), `--deep` (run extended architecture checks), `--dry-run` (simulate without applying).
+
 ---
 
 ## 6. Keep Cortex up to date
@@ -130,6 +132,28 @@ This command:
 
 ---
 
+## 8. Additional commands
+
+**Impact analysis** — trace changed files through the dependency graph and assign a risk level before merging:
+
+```
+/impact
+/impact --staged
+/impact --since=main --deep
+```
+
+**Regression detection** — save a baseline and compare future states against it:
+
+```
+/regression --save        # capture current state as baseline
+/regression               # compare current state against baseline
+/regression --reset       # start fresh
+```
+
+See `README.md` for full flag reference and output format.
+
+---
+
 ## 7. Local overrides
 
 To customize Cortex behavior for a specific project without modifying the base framework:
@@ -142,8 +166,8 @@ Place your overrides in `.cortex/local/`. These files are never modified by `/up
 
 ```
 ~/.cortex/core/hooks/guards/    ← PreToolUse, PermissionRequest, PermissionDenied hooks
-~/.cortex/core/hooks/runtime/   ← PostToolUse, Stop, SessionStart, UserPromptSubmit hooks
-~/.cortex/core/scanners/        ← language-specific format + security scanners
+~/.cortex/core/hooks/runtime/   ← PostToolUse, PostToolUseFailure, Notification, TaskCreated/Completed, Stop, SessionStart, UserPromptSubmit hooks
+~/.cortex/core/scanners/        ← 25 language directories; mappings in registry/scanners.json
 ~/.cortex/registry/             ← hooks.json, scanners.json, commands.json
 ~/.cortex/commands/             ← full command implementations
 ~/.cortex/cache/                ← generated project-profile.json (written by session-start)
@@ -169,6 +193,10 @@ The `.claude/` folder in your project contains no business logic. All logic runs
 | `UserPromptSubmit` | `runtime/prompt-optimizer.sh` | Before every user message is processed |
 | `PostToolUse (Write\|Edit)` | `runtime/post-format.sh` | After any file write or edit |
 | `PostToolUse (Write\|Edit)` | `runtime/post-scan.sh` | After any file write or edit |
-| `PostToolUse (Write\|Edit)` | `runtime/post-code-intel.js` | After any file write or edit |
+| `PostToolUse (Write\|Edit)` | `runtime/post-code-intel.sh` | After any file write or edit |
 | `PostToolUse (Write\|Edit\|Bash)` | `runtime/post-audit-log.sh` | After any tool use |
+| `PostToolUseFailure` | `runtime/post-error-analyzer.sh` | When a tool invocation fails |
+| `Notification` | `runtime/notification.sh` | On any Claude Code notification event |
+| `TaskCreated` | `runtime/task-tracker.sh` | When a task is created |
+| `TaskCompleted` | `runtime/task-tracker.sh` | When a task is completed |
 | `Stop` | `runtime/stop-build.sh` | When Claude finishes a response |
