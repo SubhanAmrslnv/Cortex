@@ -22,6 +22,10 @@
           {
             "type": "command",
             "command": "bash ~/.cortex/core/hooks/runtime/post-scan.sh"
+          },
+          {
+            "type": "command",
+            "command": "node ~/.cortex/core/hooks/runtime/post-code-intel.js"
           }
         ]
       },
@@ -41,6 +45,46 @@
           {
             "type": "command",
             "command": "bash ~/.cortex/core/hooks/runtime/stop-build.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.cortex/core/hooks/runtime/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.cortex/core/hooks/runtime/prompt-optimizer.sh"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.cortex/core/hooks/guards/permission-request.sh"
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.cortex/core/hooks/guards/permission-denied.sh"
           }
         ]
       }

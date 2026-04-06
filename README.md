@@ -1,7 +1,36 @@
 # Cortex — Claude Code Global Configuration
 
-Version-controlled global configuration for [Claude Code](https://claude.ai/code).
-Covers security guards, auto-formatting, audit logging, and behavior rules for .NET (C#) and Node/React projects.
+A modular, registry-driven DevOps framework for [Claude Code](https://claude.ai/code).
+Covers intelligent prompt optimization, session profiling, risk-scored security guards, permission recovery, auto-formatting, code intelligence, audit logging, and behavior rules for .NET (C#) and Node/React projects.
+
+---
+
+## Prerequisites
+
+| Tool | Required | Purpose |
+|---|---|---|
+| `jq` | **Yes** | JSON parsing in every hook — without it all hooks silently no-op |
+| `bash` 4.0+ | Yes | All hook scripts |
+| `node` 16+ | Yes | `post-code-intel.js` code intelligence |
+| `git` | Yes | Branch detection, commit guard |
+| [Claude Code](https://claude.ai/code) | Yes | Hook and command runtime |
+
+**Install `jq`:**
+```bash
+# macOS
+brew install jq
+
+# Ubuntu/Debian
+sudo apt install jq
+
+# Windows — Scoop (recommended)
+scoop install jq
+
+# Windows — winget
+winget install jqlang.jq
+```
+
+Verify: `jq --version`
 
 ---
 
@@ -11,19 +40,26 @@ Covers security guards, auto-formatting, audit logging, and behavior rules for .
 .cortex/                              ← framework root (all logic lives here)
   core/
     hooks/
-      guards/pre-guard.sh             ← PreToolUse guard
-      runtime/post-format.sh          ← registry-driven formatter dispatcher
-      runtime/post-scan.sh            ← registry-driven security scanner dispatcher
-      runtime/post-audit-log.sh       ← audit logger
-      runtime/stop-build.sh           ← build failure reporter
+      guards/
+        pre-guard.sh                  ← PreToolUse risk-scoring engine (v2.0.0)
+        permission-request.sh         ← PermissionRequest enricher
+        permission-denied.sh          ← PermissionDenied safe-recovery engine
+      runtime/
+        post-format.sh                ← registry-driven formatter dispatcher (v2.1.0)
+        post-scan.sh                  ← registry-driven security scanner dispatcher (v2.1.0)
+        post-audit-log.sh             ← audit logger
+        post-code-intel.js            ← code intelligence analyzer (Node.js)
+        stop-build.sh                 ← build failure reporter
+        session-start.sh              ← SessionStart project profiler
+        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine
     runtime/
       command-runner.sh               ← registry-driven command validator/dispatcher
     scanners/
       dotnet/security-scan.sh         ← unsafe .NET API detection
       dotnet/format.sh                ← dotnet format wrapper
-      node/react-security-scan.sh     ← XSS pattern detection
+      node/react-security-scan.sh     ← XSS pattern detection for JS/TS/JSX/TSX
       node/format.sh                  ← Prettier + ESLint wrapper
-      generic/secret-scan.sh          ← hardcoded secret detection
+      generic/secret-scan.sh          ← hardcoded secret detection (all file types)
   commands/
     commit.md                         ← full commit command implementation
     doctor.md                         ← full doctor command implementation
@@ -32,13 +68,15 @@ Covers security guards, auto-formatting, audit logging, and behavior rules for .
   registry/
     hooks.json                        ← hook names, versions, source paths
     commands.json                     ← discoverable command list
-    scanners.json                     ← extension→scanner mapping
+    scanners.json                     ← extension→scanner mapping (flat format)
   config/
     cortex.config.json                ← framework configuration
+  cache/
+    project-profile.json              ← generated at session start; consumed by prompt optimizer
   base/                               ← remote Cortex content (updated by /update-cortex)
   local/                              ← project-local overrides (never overwritten)
 .claude/
-  settings.json                       ← adapter only: wires ~/.claude/hooks/* to Claude Code
+  settings.json                       ← adapter only: wires ~/.cortex/core/hooks/* to Claude Code
   commands/                           ← thin wrappers; delegate to .cortex/commands/
 CLAUDE.md
 README.md
@@ -47,81 +85,130 @@ INSTALL.md
 
 ---
 
-## Setup
+## Hooks
 
-Copy this repo to your machine. Open Claude Code in any project directory and run `/init`.
+All hooks run directly from `~/.cortex/core/hooks/`. Hook paths in `settings.json` follow `~/.cortex/core/hooks/<subdir>/<filename>`.
+
+| Event | Hook | What it does |
+|---|---|---|
+| `PreToolUse (Bash)` | `guards/pre-guard.sh` | Risk-scoring engine — scores command across 6 categories, warns or blocks |
+| `PermissionRequest` | `guards/permission-request.sh` | Enriches approval prompts with intent, risks, and safer alternatives |
+| `PermissionDenied` | `guards/permission-denied.sh` | Generates a safe alternative command and decides whether retry is possible |
+| `SessionStart` | `runtime/session-start.sh` | Detects project type, extracts metadata, writes `.cortex/cache/project-profile.json` |
+| `UserPromptSubmit` | `runtime/prompt-optimizer.sh` | Detects intent, finds relevant files, extracts code snippets, outputs structured prompt |
+| `PostToolUse (Write\|Edit)` | `runtime/post-format.sh` | Registry-driven: dispatches to formatters by file extension |
+| `PostToolUse (Write\|Edit)` | `runtime/post-scan.sh` | Registry-driven: dispatches to security scanners by file extension |
+| `PostToolUse (Write\|Edit)` | `runtime/post-code-intel.js` | Analyzes modified files for complexity, duplication, naming, and structure issues |
+| `PostToolUse (Write\|Edit\|Bash)` | `runtime/post-audit-log.sh` | Appends every tool use to `~/.claude/audit.log` |
+| `Stop` | `runtime/stop-build.sh` | Builds project; prints errors on failure — does NOT auto-fix |
 
 ---
 
-## What's Inside
+## Hook Details
 
-### Hooks
+### Risk-Scored Security Guard (`pre-guard.sh` v2.0.0)
 
-| Event | Script | What it does |
+Replaces flat pattern-blocking with a numeric risk engine. Accumulates a score across 6 categories:
+
+| Category | Examples | Points |
 |---|---|---|
-| PreToolUse (Bash) | `pre-guard.sh` | Blocks dangerous commands before they run |
-| PostToolUse (Write\|Edit) | `post-format.sh` | Registry-driven: dispatches to formatters based on file extension |
-| PostToolUse (Write\|Edit) | `post-scan.sh` | Registry-driven: dispatches to security scanners based on file extension |
-| PostToolUse (Write\|Edit\|Bash) | `post-audit-log.sh` | Appends every tool use to `~/.claude/audit.log` |
-| Stop | `stop-build.sh` | Builds project; on failure prints errors for manual review |
+| Destructive | `rm -rf`, `DROP TABLE`, `git reset --hard`, `git clean -f` | +50 each |
+| Privileged | `sudo`, write to `/etc /usr /bin /sys` | +30 each |
+| Dangerous flags | `--force`, `--no-verify` | +20 each |
+| Security threats | curl\|sh, base64 exec, reverse shell, exploit tools | +40 each |
+| Sensitive files | `.env .pem .key .pfx` | +25 |
+| Protected branch | `main / master / develop` (git commands only) | +20 |
 
-Hooks live in `.cortex/core/hooks/`. The first four are deployed to `~/.claude/hooks/` by `/init`. The Stop hook runs directly from `.cortex/core/hooks/runtime/stop-build.sh`.
+**Thresholds:** `risk < 30` → allow silently · `30–69` → allow with JSON warning · `≥ 70` → block with reason + suggestion.
 
-### Registry-Driven Dispatch
+---
 
-`post-format.sh` and `post-scan.sh` contain no language-specific logic. All extension→scanner mappings live in `.cortex/registry/scanners.json`:
+### Permission System (`permission-request.sh` + `permission-denied.sh`)
 
+**PermissionRequest** — fires before the user sees an approval dialog. Outputs structured JSON:
 ```json
 {
-  ".cs": ["dotnet/security-scan.sh", "dotnet/format.sh"],
-  ".ts": ["node/react-security-scan.sh", "node/format.sh"],
-  "*": ["generic/secret-scan.sh"]
+  "intent": "git_operation",
+  "explanation": "This command pushes local commits to a remote repository.",
+  "risks": ["data loss: --force may overwrite or destroy remote state"],
+  "suggestion": "Use 'git push --force-with-lease' instead",
+  "requiresConfirmation": true
 }
 ```
 
-To add support for a new language: add an entry to `scanners.json` and create the scanner scripts. No hook changes required.
+**PermissionDenied** — fires after denial. Transforms the unsafe command into a safe alternative and signals whether a retry is appropriate:
+```json
+{
+  "retry": true,
+  "originalCommand": "git push --force origin main",
+  "safeCommand": "git push --force-with-lease origin main",
+  "reason": "unsafe flag: --force can silently overwrite remote commits",
+  "message": "Replaced '--force' with '--force-with-lease'."
+}
+```
 
-### Security Guards (`pre-guard.sh`)
-
-- Dangerous commands: `rm -rf`, `drop table`, `truncate`, `--force`
-- Force-push or direct commit to `main`/`master`/`develop`
-- Non-conventional commit message format
-- Staging secret files (`.env`, `.key`, `.pem`, `.pfx`)
-- Destructive git ops (`reset --hard`, `clean -f`)
-- Files >1MB staged (excludes binaries/assets)
-- SQL injection patterns in CLI args
-- Writes to system directories (`/etc`, `/usr`, `/bin`)
-- `sudo` usage
-- Known exploit tools (`sqlmap`, `nmap`, `hydra`, `hashcat`, etc.)
-- Reverse shells, base64 execution, cron persistence, curl-pipe-to-shell
+Safe transformations include: `rm -rf` → `rm -ri`, `git reset --hard` → `git stash`, `curl|sh` → download + inspect, `--no-verify` removed, `sudo` stripped. Exploit tools and reverse shells are never retried.
 
 ---
 
-## Safe Update System
+### Session Profiler (`session-start.sh`)
 
-Cortex uses a two-layer update model:
+Runs automatically when a session begins. Detects project type (dotnet > node > python priority), extracts:
+- **Dependencies** — `PackageReference` from `.csproj`, keys from `package.json`, lines from `requirements.txt`
+- **Entry points** — `Program.cs`, `index.ts`, `main.py`, etc.
+- **Structure** — notable directories (`src`, `api`, `services`, `tests`, `config`, etc.)
 
-- **`base/`** — canonical framework files from the remote Cortex repo. Updated by `/update-cortex`.
-- **`local/`** — project-specific overrides. Never touched by any automated process.
-
-### Running `/update-cortex`
-
-1. Fetches latest changes from the remote Cortex repository
-2. Shows a diff of what changed (added, modified, removed files)
-3. Asks for confirmation before applying anything
-4. Updates **only** `base/` — `local/` is never modified
-5. Runs `/init` to redeploy any updated hooks
-
-If conflicts arise, they are surfaced for manual resolution. No auto-resolution.
+Writes `.cortex/cache/project-profile.json`. Idempotent — skips rewrite if project files are unchanged (fingerprinted via mtime checksum). Output consumed by the prompt optimizer.
 
 ---
 
-## Deploying Hook Changes
+### Prompt Optimizer (`prompt-optimizer.sh`)
 
-1. Edit the source hook in `.cortex/core/hooks/`
-2. Increment the `# @version: X.Y.Z` tag on line 2
-3. Update the version in `.cortex/registry/hooks.json`
-4. Run `/init` — it version-compares and deploys only outdated hooks
+Intercepts every user prompt via the `UserPromptSubmit` hook (reads from stdin). Pipeline:
+
+1. **Normalize** — trim whitespace; expand prompts under 20 chars with `"Clarify and resolve: ..."`
+2. **Detect intent** — `bug_fix` / `feature_request` / `refactor` / `question`
+3. **Find relevant files** — keyword matching on CamelCase identifiers, stack-trace path extraction, naming heuristics (`auth`, `service`, `controller`, `handler`, etc.)
+4. **Extract snippets** — ±20 lines around the best keyword match per file (max 5 files)
+5. **Load project profile** — reads `.cortex/cache/project-profile.json` for project type
+6. **Output structured prompt** — replaces the raw prompt with context + code snippets + intent + constraints
+
+---
+
+### Code Intelligence (`post-code-intel.js`)
+
+Runs after every `Write` or `Edit` on `.cs .js .ts .jsx .tsx` files ≤ 1MB. Four lightweight regex-based checks:
+
+| Check | Mechanism | Threshold |
+|---|---|---|
+| Method length | Brace-depth tracking from declaration | > 50 lines |
+| Nesting depth | Live `{}` counter at conditional keywords | depth > 3 |
+| Duplication | MD5 of 8-line sliding window (normalized) | Same hash ≥ 8 lines apart |
+| Naming | Declaration regex vs. set of non-descriptive names | Capped at 3 per file |
+| Structure | Line count + UI×DB keyword cross-detection | > 500 lines or mixed concerns |
+
+Outputs structured JSON to stdout. Never modifies files.
+
+---
+
+### Registry-Driven Dispatch (`post-format.sh` + `post-scan.sh`)
+
+Both hooks contain zero language-specific logic. All extension→scanner mappings live in `.cortex/registry/scanners.json`:
+
+```json
+{
+  ".cs":   ["dotnet/security-scan.sh", "dotnet/format.sh"],
+  ".ts":   ["node/react-security-scan.sh", "node/format.sh"],
+  ".tsx":  ["node/react-security-scan.sh"],
+  ".js":   ["node/react-security-scan.sh"],
+  ".jsx":  ["node/react-security-scan.sh"],
+  ".html": ["node/format.sh"],
+  ".scss": ["node/format.sh"],
+  "*":     ["generic/secret-scan.sh"]
+}
+```
+
+To add a new language: add an entry to `scanners.json` and create the scanner script. No hook changes required.
 
 ---
 
@@ -135,3 +222,23 @@ If conflicts arise, they are surfaced for manual resolution. No auto-resolution.
 | `/update-cortex` | Safely update `.cortex/base/` from remote with diff preview |
 
 Command wrappers in `.claude/commands/` are thin delegates. All logic lives in `.cortex/commands/`.
+
+---
+
+## Safe Update System
+
+- **`base/`** — canonical framework files from the remote Cortex repo. Updated by `/update-cortex`.
+- **`local/`** — project-specific overrides. Never touched by any automated process.
+
+`/update-cortex` fetches changes, shows a diff, asks for confirmation, updates only `base/`, then re-runs `/init` to redeploy updated hooks.
+
+---
+
+## Deploying Hook Changes
+
+1. Edit the source hook in `.cortex/core/hooks/`
+2. Increment `# @version: X.Y.Z` on line 2
+3. Update the version in `.cortex/registry/hooks.json`
+4. Copy `.cortex/` to `~/.cortex/` (or run `/init`)
+
+`/init` version-compares source vs runtime and deploys only what changed.
