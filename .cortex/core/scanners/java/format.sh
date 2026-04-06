@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.java ]] && exit 0
 
 command -v google-java-format &>/dev/null && google-java-format --replace "$file" 2>/dev/null
+
+exit 0

@@ -9,3 +9,5 @@ file="$1"
 
 command -v gofmt &>/dev/null && gofmt -w "$file" 2>/dev/null
 command -v goimports &>/dev/null && goimports -w "$file" 2>/dev/null
+
+exit 0

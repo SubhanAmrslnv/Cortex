@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.sh && $file != *.bash ]] && exit 0
 
 command -v shfmt &>/dev/null && shfmt -w "$file" 2>/dev/null
+
+exit 0

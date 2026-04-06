@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.rs ]] && exit 0
 
 command -v rustfmt &>/dev/null && rustfmt "$file" 2>/dev/null
+
+exit 0

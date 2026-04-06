@@ -11,3 +11,5 @@ file="$1"
 if grep -qiE '(Process\.Start|Shell\(|BinaryFormatter|JavaScriptSerializer|XmlSerializer.*UnsafeDeserializ|ObjectStateFormatter|LosFormatter|NetDataContractSerializer)' "$file"; then
   echo "WARNING: potentially unsafe .NET API in $file — verify intent"
 fi
+
+exit 0

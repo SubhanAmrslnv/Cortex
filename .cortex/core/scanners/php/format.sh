@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.php ]] && exit 0
 
 command -v php-cs-fixer &>/dev/null && php-cs-fixer fix "$file" 2>/dev/null
+
+exit 0

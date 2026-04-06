@@ -9,3 +9,5 @@ file="$1"
 
 command -v black &>/dev/null && black "$file" 2>/dev/null
 command -v isort &>/dev/null && isort "$file" 2>/dev/null
+
+exit 0

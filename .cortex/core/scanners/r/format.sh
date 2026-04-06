@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.r && $file != *.R ]] && exit 0
 
 command -v Rscript &>/dev/null && Rscript -e "styler::style_file('$file')" 2>/dev/null
+
+exit 0
