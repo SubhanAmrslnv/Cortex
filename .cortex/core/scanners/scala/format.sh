@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.scala && $file != *.sc ]] && exit 0
 
 command -v scalafmt &>/dev/null && scalafmt "$file" 2>/dev/null
+
+exit 0

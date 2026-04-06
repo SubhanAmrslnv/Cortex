@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.cs ]] && exit 0
 
 dotnet format --include "$file" 2>/dev/null
+
+exit 0

@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.proto ]] && exit 0
 
 command -v buf &>/dev/null && buf format -w "$file" 2>/dev/null
+
+exit 0

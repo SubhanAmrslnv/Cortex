@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# @version: 1.0.0
+# @version: 1.1.0
 # PostToolUse code intelligence — analyzes modified files for complexity,
 # duplication, naming, and structure issues. Read-only; never modifies files.
 
 command -v jq &>/dev/null || exit 0
 
-input=$(echo "$TOOL_INPUT")
-file=$(echo "$input" | jq -r '.file_path // empty' 2>/dev/null)
+input=$(cat)
+[[ -z "$input" ]] && exit 0
+
+file=$(echo "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 [[ -z "$file" || ! -f "$file" ]] && exit 0
 
 # Supported extensions only

@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.yaml && $file != *.yml ]] && exit 0
 
 command -v prettier &>/dev/null && prettier --write "$file" 2>/dev/null
+
+exit 0

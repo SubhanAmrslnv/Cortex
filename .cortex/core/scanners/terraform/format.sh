@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.tf && $file != *.tfvars ]] && exit 0
 
 command -v terraform &>/dev/null && terraform fmt "$file" 2>/dev/null
+
+exit 0

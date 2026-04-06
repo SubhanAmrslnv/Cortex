@@ -11,3 +11,5 @@ file="$1"
 if grep -qiE '(dangerouslySetInnerHTML|eval\(|document\.write\(|innerHTML\s*=)' "$file"; then
   echo "WARNING: XSS-prone pattern detected in $file — verify intent"
 fi
+
+exit 0

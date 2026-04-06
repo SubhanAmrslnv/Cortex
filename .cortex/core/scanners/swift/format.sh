@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.swift ]] && exit 0
 
 command -v swiftformat &>/dev/null && swiftformat "$file" 2>/dev/null
+
+exit 0

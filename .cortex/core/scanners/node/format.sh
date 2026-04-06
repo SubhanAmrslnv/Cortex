@@ -13,3 +13,5 @@ esac
 if [[ "$file" == *.ts ]]; then
   npx eslint --fix "$file" 2>/dev/null
 fi
+
+exit 0

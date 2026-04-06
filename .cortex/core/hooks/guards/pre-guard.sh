@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 2.0.0
+# @version: 2.1.0
 # PreToolUse advanced guard — risk-scoring engine.
 # Scores the incoming Bash command across 5 risk categories + branch context,
 # then blocks (exit 1), warns (exit 0 + JSON), or allows silently.
@@ -11,7 +11,9 @@
 
 command -v jq &>/dev/null || exit 0
 
-cmd=$(echo "$TOOL_INPUT" | jq -r '.command // empty' 2>/dev/null)
+input=$(cat)
+[[ -z "$input" ]] && exit 0
+cmd=$(echo "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)
 [[ -z "$cmd" ]] && exit 0
 
 risk=0

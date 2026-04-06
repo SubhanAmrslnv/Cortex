@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.sql && $file != *.psql && $file != *.pgsql ]] && exit 0
 
 command -v sql-formatter &>/dev/null && sql-formatter --output "$file" "$file" 2>/dev/null
+
+exit 0

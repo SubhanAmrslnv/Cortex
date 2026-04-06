@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.kt && $file != *.kts ]] && exit 0
 
 command -v ktlint &>/dev/null && ktlint --format "$file" 2>/dev/null
+
+exit 0

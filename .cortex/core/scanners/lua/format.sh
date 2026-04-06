@@ -9,3 +9,4 @@ file="$1"
 
 command -v stylua &>/dev/null && stylua "$file" 2>/dev/null
 /
+exit 0

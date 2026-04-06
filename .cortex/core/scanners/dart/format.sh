@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.dart ]] && exit 0
 
 command -v dart &>/dev/null && dart format "$file" 2>/dev/null
+
+exit 0

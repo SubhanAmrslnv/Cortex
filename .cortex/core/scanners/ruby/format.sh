@@ -8,3 +8,5 @@ file="$1"
 [[ $file != *.rb ]] && exit 0
 
 command -v rubocop &>/dev/null && rubocop --auto-correct "$file" 2>/dev/null
+
+exit 0
