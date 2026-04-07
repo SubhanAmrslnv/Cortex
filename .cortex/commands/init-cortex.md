@@ -1,5 +1,19 @@
 # /init-cortex — Cortex Environment Setup and Hook Deployment
 
+## WINDOWS PATH NOTE
+
+On Windows (Git Bash / MSYS2), `$HOME` and `$(pwd)` expand to Unix-style paths like `/c/Users/...`. Native Windows Python cannot open these paths — it requires `C:/Users/...`.
+
+**Rule**: never pass a bash-expanded path directly to Python's `open()`. Always use bash `[ -f ]` / `[ -d ]` / `cat` for file operations, or convert the path first:
+
+```bash
+NATIVE_PATH=$(python3 -c "import os,sys; print(os.path.normpath(sys.argv[1]))" "$THE_PATH")
+```
+
+This applies to every step below that reads files under `$CORTEX_ROOT` or `~/.claude/`.
+
+---
+
 ## MODE DETECTION
 
 Parse `$ARGUMENTS` for flags:
@@ -109,9 +123,23 @@ Record each as `OK` or `ERROR`.
 
 ## STEP 6 — Validate scanner availability
 
-Read `$CORTEX_ROOT/.cortex/registry/scanners.json`.
+Read `$CORTEX_ROOT/.cortex/registry/scanners.json` using bash (`cat`), then parse with `python3` **only after converting the path to a native OS path**.
 
-For each extension key (excluding `*`), for each scanner path in its array, check `$CORTEX_ROOT/.cortex/core/scanners/<path>` exists.
+On Windows (Git Bash / MSYS2), `$HOME` expands to `/c/Users/...` which Python cannot resolve. Before any Python `open()` call, convert the path:
+
+```bash
+NATIVE_ROOT=$(python3 -c "import os,sys; print(os.path.normpath(sys.argv[1]))" "$CORTEX_ROOT" 2>/dev/null || echo "$CORTEX_ROOT")
+```
+
+Use `$NATIVE_ROOT` (not `$CORTEX_ROOT`) as the base path inside all Python `open()` calls in this step.
+
+**Alternatively**, prefer pure bash for file-existence checks — avoids the problem entirely:
+
+```bash
+[ -f "$CORTEX_ROOT/.cortex/core/scanners/<path>" ] && echo OK || echo "WARNING (missing)"
+```
+
+For each extension key (excluding `*`), for each scanner path in its array, check `$CORTEX_ROOT/.cortex/core/scanners/<path>` exists using bash `[ -f ]`.
 
 Record each as `OK` or `WARNING (missing)`.
 
