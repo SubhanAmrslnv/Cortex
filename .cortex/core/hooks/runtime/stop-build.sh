@@ -14,6 +14,12 @@ if [ -z "${CORTEX_ROOT:-}" ]; then
 fi
 
 detect_build_cmd() {
+  # .NET Framework projects (TargetFrameworkVersion = v4.x) require VS MSBuild, not dotnet CLI.                                                                                                                                                           
+  # dotnet CLI lacks Microsoft.WebApplication.targets — skip to avoid false failures.                                                                                                                                                                
+  if find . -name "*.csproj" -not -path "*/obj/*" -not -path "*/bin/*" | xargs grep -l "TargetFrameworkVersion" 2>/dev/null | grep -q .; then                                                                                                                  
+    echo "skip:net-framework-project-requires-vs-msbuild"                                                                                                                                                                                                                                                 
+    return                                                                                                                                                                                                                                                     
+  fi 
   if compgen -G "*.sln" > /dev/null 2>&1; then
     echo "dotnet build --nologo -v q"
     return
@@ -39,6 +45,11 @@ if [[ -z "${build_cmd:-}" ]]; then
   exit 0
 fi
 
+if [[ "$build_cmd" == skip:* ]]; then                                                                                                                                                                                                                     
+  echo "[build] Skipping: ${build_cmd#skip:}"                                                                                                                                                                                                           
+  exit 0                                                                                                                                                                                                                                                  
+fi  
+
 echo "[build] Running: $build_cmd"
 build_output=$(bash -c "$build_cmd" 2>&1)
 build_exit=$?
@@ -48,8 +59,8 @@ if [[ $build_exit -eq 0 ]]; then
   exit 0
 fi
 
-echo "[build] Build FAILED — review errors below and fix manually:"
-echo "---"
-echo "$build_output"
-echo "---"
-exit 1
+echo "[build] Build FAILED — review errors below and fix manually:" >&2                                                                                                                                          
+echo "---" >&2                                                                                                                                                                                                   
+echo "$build_output" >&2                                                                                                                                                                                         
+echo "---" >&2                                                                                                                                                                                                   
+  exit 2 
