@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# @version: 1.1.2
-# Stop hook — detects project type, runs the build, and reports failures.
-# Does NOT auto-fix. On failure: print errors, suggest manual review, exit 1.
+# @version: 1.2.0
+# Stop hook — detects project type, runs the build, streams output, reports failures.
+# Does NOT auto-fix. On failure: summarize errors, suggest manual review, exit 1.
 
 set -uo pipefail
 
@@ -13,27 +13,63 @@ if [ -z "${CORTEX_ROOT:-}" ]; then
   fi
 fi
 
+# Cache csproj discovery — avoids repeated find traversals
+_csproj_files=$(find . -name "*.csproj" -not -path "*/obj/*" -not -path "*/bin/*" 2>/dev/null)
+
 detect_build_cmd() {
-  # .NET Framework projects (TargetFrameworkVersion = v4.x) require VS MSBuild, not dotnet CLI.                                                                                                                                                           
-  # dotnet CLI lacks Microsoft.WebApplication.targets — skip to avoid false failures.                                                                                                                                                                
-  if find . -name "*.csproj" -not -path "*/obj/*" -not -path "*/bin/*" | xargs grep -l "TargetFrameworkVersion" 2>/dev/null | grep -q .; then                                                                                                                  
-    echo "skip:net-framework-project-requires-vs-msbuild"                                                                                                                                                                                                                                                 
-    return                                                                                                                                                                                                                                                     
-  fi 
+  # .NET Framework (v4.x): requires VS MSBuild, dotnet CLI lacks WebApplication targets
+  if echo "$_csproj_files" | xargs grep -l "<TargetFrameworkVersion>v4" 2>/dev/null | grep -q .; then
+    echo "skip:net-framework-project-requires-vs-msbuild"
+    return
+  fi
+
+  # .NET — solution file takes priority over loose csproj
   if compgen -G "*.sln" > /dev/null 2>&1; then
     echo "dotnet build --nologo -v q"
     return
   fi
-  if find . -name "*.csproj" -not -path "*/obj/*" -not -path "*/bin/*" | grep -q .; then
+  if echo "$_csproj_files" | grep -q .; then
     echo "dotnet build --nologo -v q"
     return
   fi
+
+  # Node — react-native before generic build script
   if [[ -f package.json ]] && jq -e '.dependencies["react-native"] // .devDependencies["react-native"]' package.json > /dev/null 2>&1; then
     echo "npx react-native build-android"
     return
   fi
   if [[ -f package.json ]] && jq -e '.scripts.build' package.json > /dev/null 2>&1; then
     echo "npm run build"
+    return
+  fi
+
+  # Go
+  if [[ -f go.mod ]]; then
+    echo "go build ./..."
+    return
+  fi
+
+  # Rust
+  if [[ -f Cargo.toml ]]; then
+    echo "cargo build --quiet"
+    return
+  fi
+
+  # Python — syntax-check all .py files
+  if [[ -f requirements.txt || -f pyproject.toml || -f setup.py ]]; then
+    py_files=$(find . -name "*.py" -not -path "*/__pycache__/*" -not -path "*/venv/*" -not -path "*/.venv/*" 2>/dev/null | tr '\n' ' ')
+    [[ -n "$py_files" ]] && echo "python -m py_compile $py_files" && return
+  fi
+
+  # Java — Maven
+  if [[ -f pom.xml ]]; then
+    echo "mvn -q -DskipTests package"
+    return
+  fi
+
+  # Java — Gradle
+  if [[ -f build.gradle || -f build.gradle.kts ]]; then
+    echo "./gradlew build -x test -q"
     return
   fi
 }
@@ -45,22 +81,107 @@ if [[ -z "${build_cmd:-}" ]]; then
   exit 0
 fi
 
-if [[ "$build_cmd" == skip:* ]]; then                                                                                                                                                                                                                     
-  echo "[build] Skipping: ${build_cmd#skip:}"                                                                                                                                                                                                           
-  exit 0                                                                                                                                                                                                                                                  
-fi  
+if [[ "$build_cmd" == skip:* ]]; then
+  echo "[build] Skipping: ${build_cmd#skip:}"
+  exit 0
+fi
 
-echo "[build] Running: $build_cmd"
-build_output=$(bash -c "$build_cmd" 2>&1)
-build_exit=$?
+# Tool availability check before attempting build
+case "$build_cmd" in
+  dotnet*)
+    if ! command -v dotnet &>/dev/null; then
+      echo "[build] dotnet CLI not found — skipping"
+      exit 0
+    fi
+    ;;
+  npm*|npx*)
+    if ! command -v npm &>/dev/null; then
+      echo "[build] npm not found — skipping"
+      exit 0
+    fi
+    ;;
+  go\ *)
+    if ! command -v go &>/dev/null; then
+      echo "[build] go not found — skipping"
+      exit 0
+    fi
+    ;;
+  cargo*)
+    if ! command -v cargo &>/dev/null; then
+      echo "[build] cargo not found — skipping"
+      exit 0
+    fi
+    ;;
+  python*)
+    if ! command -v python &>/dev/null && ! command -v python3 &>/dev/null; then
+      echo "[build] python not found — skipping"
+      exit 0
+    fi
+    ;;
+  mvn*)
+    if ! command -v mvn &>/dev/null; then
+      echo "[build] mvn not found — skipping"
+      exit 0
+    fi
+    ;;
+  ./gradlew*)
+    if [[ ! -f ./gradlew ]]; then
+      echo "[build] gradlew not found — skipping"
+      exit 0
+    fi
+    ;;
+esac
+
+# Apply fast-build flag if requested (skips restore/download steps where supported)
+if [[ "${CORTEX_FAST_BUILD:-0}" == "1" ]]; then
+  case "$build_cmd" in
+    dotnet*) build_cmd="$build_cmd --no-restore" ;;
+    mvn*)    build_cmd="$build_cmd -o" ;;
+  esac
+fi
+
+echo "[build] Running:"
+echo "--------------------------------"
+echo "$build_cmd"
+echo "--------------------------------"
+
+# Stream output in real-time AND capture for analysis
+tmp_log=$(mktemp)
+trap 'rm -f "$tmp_log"' EXIT
+
+set +e
+timeout 120 bash -c "$build_cmd" 2>&1 | tee "$tmp_log"
+build_exit=${PIPESTATUS[0]}
+set -e
+
+build_output=$(cat "$tmp_log")
+
+# Timeout
+if [[ $build_exit -eq 124 ]]; then
+  echo "[build] Build TIMEOUT after 120s — process killed" >&2
+  exit 1
+fi
+
+# No-op detection
+if [[ -z "$build_output" ]]; then
+  echo "[build] No output produced — possible no-op build"
+fi
 
 if [[ $build_exit -eq 0 ]]; then
   echo "[build] Build succeeded"
   exit 0
 fi
 
-echo "[build] Build FAILED — review errors below and fix manually:" >&2                                                                                                                                          
-echo "---" >&2                                                                                                                                                                                                   
-echo "$build_output" >&2                                                                                                                                                                                         
-echo "---" >&2                                                                                                                                                                                                   
-  exit 2 
+# Failure — summarize key errors then show full log
+echo "[build] Build FAILED — fix manually, do not auto-patch:" >&2
+echo "---" >&2
+errors=$(grep -iE "^\s*(error|fail|exception|fatal)" "$tmp_log" 2>/dev/null | head -20)
+if [[ -n "$errors" ]]; then
+  echo "[build] Key errors:" >&2
+  echo "$errors" >&2
+  echo "---" >&2
+fi
+echo "[build] Full output:" >&2
+echo "$build_output" >&2
+echo "---" >&2
+exit 1
