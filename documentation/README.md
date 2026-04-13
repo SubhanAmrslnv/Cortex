@@ -22,3 +22,4 @@ Cortex is a modular Claude DevOps configuration framework: a portable system of 
 - [usage.md](usage.md) — How to run and use the project day-to-day
 - [commands.md](commands.md) — Full Cortex slash command reference
 - [modules.md](modules.md) — Modules, folders, and responsibilities
+- [HLD.docx](HLD.docx) — High Level Design document (enterprise architecture artifact)
