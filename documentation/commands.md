@@ -330,6 +330,7 @@ A FIX recommendation is generated only for DEGRADED state.
 - Detects project type, Cortex presence, and API surface
 - Generates or updates: `README.md`, `overview.md`, `architecture.md`, `setup.md`, `usage.md`, `modules.md`
 - Conditionally generates `commands.md` (Cortex active) and `api.md` (backend detected)
+- Generates `documentation/HLD.docx` — a formal High Level Design document in Microsoft Word format
 - Never contradicts `CLAUDE.md`; never invents features or endpoints
 
 **Usage example:**

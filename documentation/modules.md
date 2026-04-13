@@ -23,7 +23,7 @@
 
 **Not responsible for:** Scanning file contents, logging, formatting, or any post-execution analysis.
 
-**Files of note:** `pre-guard.sh` (v2.1.1) — the primary risk-scoring engine; every change here directly affects what Claude is allowed to execute.
+**Files of note:** `pre-guard.sh` (v2.2.0) — the primary risk-scoring engine; every change here directly affects what Claude is allowed to execute.
 
 ---
 
@@ -36,12 +36,12 @@
 **Not responsible for:** Blocking tool execution (that is the guard layer's job) or modifying the files they analyze (read-only except for the audit log).
 
 **Files of note:**
-- `post-format.sh` (v2.3.0) — registry-driven; reads `scanners.json` to dispatch format scripts
-- `post-scan.sh` (v2.3.0) — registry-driven; always runs `generic/secret-scan.sh`, then extension-specific scanners
-- `post-code-intel.sh` (v1.1.1) — four checks: complexity, duplication, naming, structure; outputs structured JSON
-- `session-start.sh` (v1.1.1) — builds `project-profile.json`; idempotent via fingerprint
-- `prompt-optimizer.sh` (v1.1.1) — replaces every user prompt with a context-enriched structured version
-- `stop-build.sh` (v1.1.1) — runs the project build on session end; reports failures without auto-fixing
+- `post-format.sh` (v2.4.0) — registry-driven; reads `scanners.json` to dispatch format scripts
+- `post-scan.sh` (v2.5.0) — registry-driven; always runs `generic/secret-scan.sh`, then extension-specific scanners; concurrency-limited via `CORTEX_MAX_JOBS` (default 4)
+- `post-code-intel.sh` (v1.2.0) — four checks: complexity, duplication, naming, structure; outputs structured JSON
+- `session-start.sh` (v1.2.0) — builds `project-profile.json`; idempotent via fingerprint; prunes scan cache entries older than 7 days
+- `prompt-optimizer.sh` (v1.6.0) — replaces every user prompt with a context-enriched structured version; supports `--y` flag to default all binary decisions to YES
+- `stop-build.sh` (v1.2.0) — runs the project build on session end; reports failures without auto-fixing
 
 ---
 
