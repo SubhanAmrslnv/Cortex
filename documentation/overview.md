@@ -19,6 +19,6 @@ Developers and teams using Claude Code who want automated safeguards, consistent
 - **Registry-driven formatting** — format scripts for all supported languages run on every Edit/Write without per-project configuration
 - **Audit logging** — every tool use appended to `~/.claude/audit.log` for full session traceability
 - **Code intelligence** — post-write analysis of `.cs`, `.js`, `.ts`, `.jsx`, `.tsx` files for complexity, duplication, naming, and structural issues
-- **Structured slash commands** — 13 commands covering commits, diagnostics, dependency impact, regression detection, hotspot scoring, PR simulation, pattern drift, code optimization, overengineering detection, timeline analysis, and documentation generation
+- **Structured slash commands** — 14 commands covering commits, diagnostics, dependency impact, regression detection, hotspot scoring, PR simulation, pattern drift, code optimization, overengineering detection, timeline analysis, documentation generation, and autonomous full-stack debugging
 - **Session-aware prompt optimization** — project profile is built at session start and injected as structured context into every prompt
 - **Error classification** — when a tool invocation fails, the error is classified and a structured fix suggestion is emitted automatically

@@ -21,6 +21,7 @@ All commands are invoked inside Claude Code as `/command-name`. Each command is 
 | `/overengineering-check` | `--file=<path>` `--since=<ref>` `--deep` | Detect unnecessary abstractions and structural complexity |
 | `/timeline` | `--file=<path>` `--module=<dir>` `--depth=<n>` `--since=<date>` | Analyze file evolution through git history; classify stability |
 | `/documentation` | — | Generate or update a structured `documentation/` folder |
+| `/debug` | `--deep` `--ui` `--backend` `--value` `--fix` `--loop` `--endpoint=` `--file=` `--error=` `--payload=` | Autonomous full-stack debugging — trace, find root cause, fix, self-heal |
 
 ---
 
@@ -317,6 +318,82 @@ A FIX recommendation is generated only for DEGRADED state.
 ```
 /timeline --file=.cortex/core/hooks/guards/pre-guard.sh
 /timeline --module=.cortex/core/hooks/runtime --depth=50
+```
+
+---
+
+### `/debug`
+
+**Purpose:** Autonomous full-stack debugging engine. Traces the full execution path, tracks values, identifies a single root cause, applies a minimal fix, verifies against tests, and self-heals until resolved.
+
+**Invocation modes:**
+
+```
+/debug --endpoint=/api/cases/create
+/debug --file=CaseService.cs --backend --fix
+login returns 401 /debug
+checkout button does nothing /debug
+```
+
+Suffix mode: append `/debug` to any natural-language prompt. Claude strips the suffix and begins debugging immediately without asking questions.
+
+**Core flags:**
+
+| Flag | Default | Behavior |
+|---|---|---|
+| `--deep` | off | Extend trace to Middleware, Interceptors, Validators, and env/config layers |
+| `--ui` | off | Force frontend analysis + snapshot regardless of file type auto-detection |
+| `--backend` | off | Restrict trace to backend layers only; skip all frontend steps |
+| `--value` | off | Verbose value tracking across every layer (default covers anomalous layers only) |
+| `--fix` | off | Skip ISSUE and FLOW sections; output patch and STATUS only |
+| `--loop` | off | Remove 3-iteration self-healing cap; continue until `STATUS = RESOLVED` |
+
+**Input flags:**
+
+| Flag | Behavior |
+|---|---|
+| `--endpoint=<value>` | Override entry point with a specific API route |
+| `--file=<value>` | Override entry point with a specific file path |
+| `--error="<value>"` | Set SYMPTOM directly; bypass keyword inference |
+| `--payload='<json>'` | Inject known request payload; used as concrete seed values in value tracking |
+
+**What it does (pipeline):**
+1. Parse flags and resolve mode variables; apply priority rules (`--backend` wins over `--ui`)
+2. Infer problem from symptom, entry point, and suspected layer
+3. Discover relevant files via Grep/Glob — never reads code without locating it first
+4. Trace full execution path across all in-scope layers; collect all anomalies
+5. Track values at every fault site (or all layers if `--value`)
+6. Run frontend analysis + snapshot if `IS_FRONTEND = true`
+7. Identify single root cause with confidence level (HIGH / MEDIUM / LOW)
+8. Apply minimal surgical fix — one edit per file, no new abstractions or imports
+9. Verify against co-located test files; suggest assertion if none found
+10. Re-execute trace against fixed code; repeat until `STATUS = RESOLVED` or 3 iterations (unless `--loop`)
+
+**Priority rules:**
+- `--backend` + `--ui` together → `--backend` wins
+- `--deep` + `--backend` → extend backend layers only; skip frontend-side deep layers
+- `--loop` active → `STATUS = ESCALATE` is never emitted
+- `--fix` active → ISSUE and FLOW sections are omitted entirely
+
+**Output sections:**
+
+| Section | When printed |
+|---|---|
+| `ISSUE` | Always (unless `--fix`) |
+| `FLOW` | Always (unless `--fix`) |
+| `FIX` | Always |
+| `VERIFY` | Always |
+| `RESULT` (snapshot) | Only when `IS_FRONTEND = true` |
+| `STATUS` | Always |
+
+**Usage examples:**
+```
+/debug --endpoint=/api/login
+/debug --file=OrderService.cs --deep --value
+/debug --backend --fix --endpoint=/api/cases
+/debug --payload='{"userId":1}' --endpoint=/api/orders --value
+user list renders blank /debug
+checkout total is wrong /debug
 ```
 
 ---

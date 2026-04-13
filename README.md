@@ -307,6 +307,7 @@ To add a new language: add an entry to `scanners.json` and create the scanner sc
 | `/overengineering-check` | `--file=<path>` `--since=<ref>` `--deep` | Detects unnecessary abstractions, pass-through layers, unused generics, redundant DTOs |
 | `/timeline` | `--file=<path>` `--module=<dir>` `--depth=<n>` `--since=<date>` | Analyzes a file's git history; classifies as STABLE / EVOLVING / DEGRADED |
 | `/documentation` | — | Generates or updates a structured `/documentation` folder from real project analysis |
+| `/debug` | `--deep` `--ui` `--backend` `--value` `--fix` `--loop` `--endpoint=` `--file=` `--error=` `--payload=` | Autonomous full-stack debugging — traces flow, tracks values, finds exact root cause, applies fix, self-heals |
 
 Command wrappers in `.claude/commands/` are thin delegates. All logic lives in `.cortex/commands/`.
 
@@ -461,6 +462,45 @@ Analyzes a file or module's full git history and classifies its current state.
 | `SIGNAL_ACTIVE_STABILIZATION` | Current phase is REFACTOR with ≥3 commits |
 
 **States:** `STABLE` / `EVOLVING` / `DEGRADED`. FIX recommendation generated only for DEGRADED state.
+
+---
+
+## Autonomous Debugging Engine (`/debug`)
+
+Transforms Claude into a self-healing debugger. Accepts direct invocation with flags or suffix mode (append `/debug` to any natural-language prompt).
+
+**Invocation modes:**
+```
+/debug --endpoint=/api/cases/create
+/debug --file=CaseService.cs --backend --fix
+login returns 401 /debug
+checkout button does nothing /debug
+```
+
+**What it does:**
+1. Infers the problem from symptom keywords, HTTP codes, stack traces, or `--error` flag
+2. Discovers relevant files via Grep/Glob (never reads code without locating it first)
+3. Traces the full execution path: `Frontend → API → Controller → Service → Repository → Database → Response`
+4. Tracks values at fault sites — null dereferences, type mismatches, overwritten variables, stale state
+5. Identifies a single root cause with a confidence level (HIGH / MEDIUM / LOW)
+6. Applies a minimal surgical fix (one edit per file, no new abstractions)
+7. Checks co-located test files and reports test status
+8. Re-traces after the fix and repeats until `STATUS = RESOLVED`
+
+**Core flags:**
+
+| Flag | Behavior |
+|---|---|
+| `--deep` | Extend trace to Middleware / Interceptors / Validators / env layers |
+| `--ui` | Force frontend analysis + snapshot regardless of file type |
+| `--backend` | Restrict to backend layers only; skip all frontend steps |
+| `--value` | Verbose value tracking across every layer (default: anomalous layers only) |
+| `--fix` | Suppress ISSUE and FLOW sections — output patch only |
+| `--loop` | Remove the 3-iteration self-healing cap |
+
+**Input flags:** `--endpoint=`, `--file=`, `--error="..."`, `--payload='...'`
+
+**Default behavior** (no flags): full-stack trace, fault-zone value tracking, 3-iteration self-healing cap.
 
 ---
 
