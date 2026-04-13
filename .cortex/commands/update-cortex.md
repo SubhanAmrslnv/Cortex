@@ -27,16 +27,25 @@ Skip to Step 4.
 
 ### Case B — .cortex/base/ exists but is NOT a git repository
 
+Auto-recover without prompting the user:
+
+1. Delete `.cortex/base/` (run `rm -rf .cortex/base/`)
+2. Print one line: `[AUTO-FIX] .cortex/base/ was not a git repository — deleted and re-cloning…`
+3. Clone fresh: `git clone https://github.com/SubhanAmrslnv/Cortex.git .cortex/base`
+
+If clone fails after auto-delete:
 ```
 [FAIL]
 
 TYPE: ERROR
-TITLE: .cortex/base/ is not a git repository
-DETAILS: .cortex/base/ exists but contains no .git/ directory
-WHY: git fetch cannot run in a non-repository directory — updates cannot be pulled
-FIX: delete .cortex/base/ manually, then re-run /update-cortex
+TITLE: Re-clone failed after auto-fix
+DETAILS: rm -rf succeeded but git clone exited non-zero
+WHY: remote may be unreachable or URL is incorrect
+FIX: verify network access and that https://github.com/SubhanAmrslnv/Cortex.git is reachable, then re-run /update-cortex
 ```
-Stop. Do NOT delete automatically.
+Stop.
+
+Skip to Step 4.
 
 ---
 
@@ -47,17 +56,25 @@ Inside `.cortex/base/`, run:
 git fetch origin
 ```
 
-If fetch fails:
+If fetch fails, auto-recover:
+
+1. Delete `.cortex/base/` (run `rm -rf .cortex/base/`)
+2. Print one line: `[AUTO-FIX] git fetch failed — deleted .cortex/base/ and re-cloning…`
+3. Clone fresh: `git clone https://github.com/SubhanAmrslnv/Cortex.git .cortex/base`
+
+If clone fails after auto-delete:
 ```
 [FAIL]
 
 TYPE: ERROR
-TITLE: Fetch failed
-DETAILS: git fetch origin exited non-zero in .cortex/base/
-WHY: cannot determine what has changed remotely without a successful fetch
-FIX: verify network access and git remote configuration in .cortex/base/, then re-run /update-cortex
+TITLE: Re-clone failed after fetch auto-fix
+DETAILS: git fetch failed and re-clone also exited non-zero
+WHY: remote may be unreachable, network is down, or URL is incorrect
+FIX: verify network access and that https://github.com/SubhanAmrslnv/Cortex.git is reachable, then re-run /update-cortex
 ```
 Stop.
+
+If re-clone succeeds: skip to Step 4 (no diff to show — fresh clone is already up to date).
 
 ---
 
