@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 1.6.0
+# @version: 1.7.1
 # UserPromptSubmit optimizer — weighted intent, inverted file search,
 # scored relevance, function-aware snippets, structured output.
 # Exits 0 silently on any failure to avoid blocking input.
@@ -72,6 +72,60 @@ if [[ $max_score -gt 0 ]]; then
     intent="feature_request"
   elif [[ $score_explain -eq $max_score ]]; then
     intent="explain"
+  fi
+fi
+
+# 3b. Smart command routing — scored keyword matching, auto-inject command prefix
+inferred_command=""
+
+# Guard: skip only when the prompt already carries a real slash command (word-boundary
+# check prevents "I need to debug this" from suppressing routing)
+if ! echo "$prompt" | grep -qE '^\s*/[a-zA-Z]' && \
+   ! echo "$prompt" | grep -qE '(^|[[:space:]])/debug\b'; then
+
+  _prompt_lower=$(echo "$prompt" | tr '[:upper:]' '[:lower:]')
+
+  # Scored token matching — single awk pass, keeps numeric tokens (401, 500, …)
+  read -r _sc_backend _sc_ui _sc_value _sc_perf _sc_history < <(
+    echo "$_prompt_lower" | tr -cs 'a-z0-9' '\n' | awk '
+      /^(401|403|404|500|502|503|unauthorized|forbidden|jwt|oauth|cors|bearer|token|auth|login|logout|signup|credentials|api|endpoint|webhook|request|response|header|middleware|route|redirect|callback|permission|session|cookie|certificate|ssl|tls)$/ { b++ }
+      /^(button|click|render|component|frontend|react|vue|angular|svelte|dom|css|style|modal|form|input|layout|screen|view|visible|display|ui|ux|animation|transition|scroll|event|listener|hover|focus|hydration|mount|props|state)$/                { u++ }
+      /^(null|undefined|mismatch|incorrect|empty|wrong|missing|invalid|nan|zero|value|output|result|returns|expected|actual|discrepancy|off|differs)$/                                                                                                { v++ }
+      /^(slow|performance|bottleneck|latency|memory|leak|timeout|profile|benchmark|query|index|cache|throughput|cpu|heap|n1|allocat)$/                                                                                                              { p++ }
+      /^(history|changed|evolution|blame|introduced|reverted|broke|commit|version|release|rollback|regression|when|degraded|timeline)$/                                                                                                             { h++ }
+      END { print b+0, u+0, v+0, p+0, h+0 }
+    '
+  )
+
+  # Phrase bonuses — multi-word signals not captured by token splitting (+2 each)
+  echo "$_prompt_lower" | grep -qE '(request.?failed|access.?denied|not.?authorized|http.?[0-9]{3}|invalid.?token|auth.?error|api.?call|rate.?limit)' \
+    && _sc_backend=$((_sc_backend + 2))
+  echo "$_prompt_lower" | grep -qE '(not.?working|not.?rendering|not.?showing|not.?loading|not.?visible|wont.?render|doesnt.?render|fails.?to.?mount)' \
+    && _sc_ui=$((_sc_ui + 2))
+  echo "$_prompt_lower" | grep -qE '(wrong.?value|null.?reference|null.?pointer|undefined.?is.?not|returns.?null|returns.?undefined|incorrect.?value)' \
+    && _sc_value=$((_sc_value + 2))
+  echo "$_prompt_lower" | grep -qE '(too.?slow|out.?of.?memory|memory.?leak|high.?cpu|slow.?query|n.?plus.?1)' \
+    && _sc_perf=$((_sc_perf + 2))
+
+  # Winner selection — backend has priority on exact ties (checked first, others need strict >)
+  _max_score=0
+  _route_cmd=""
+
+  if [[ $_sc_backend -gt 0 ]]; then
+    _max_score=$_sc_backend
+    _route_cmd="/debug --backend --deep"
+  fi
+  [[ $_sc_ui      -gt $_max_score ]] && { _max_score=$_sc_ui;      _route_cmd="/debug --ui"; }
+  [[ $_sc_value   -gt $_max_score ]] && { _max_score=$_sc_value;   _route_cmd="/debug --value"; }
+  [[ $_sc_perf    -gt $_max_score ]] && { _max_score=$_sc_perf;    _route_cmd="/optimize"; }
+  [[ $_sc_history -gt $_max_score ]] && { _max_score=$_sc_history; _route_cmd="/timeline --depth=10"; }
+
+  if [[ -n "$_route_cmd" ]]; then
+    inferred_command="$_route_cmd"
+  elif [[ "$intent" == "bug_fix" ]]; then
+    inferred_command="/debug"
+  elif [[ "$intent" == "refactor" ]]; then
+    inferred_command="/optimize"
   fi
 fi
 
@@ -407,5 +461,10 @@ if [[ "$FORCE_YES_MODE" == "true" ]]; then
 - Does NOT override: security constraints, destructive safeguards, system-level protections"
 fi
 
-# 12. Emit replacement prompt
-jq -n --arg p "$structured" '{"prompt": $p}'
+# 12. Emit replacement prompt — prepend inferred command when routing was triggered
+if [[ -n "$inferred_command" ]]; then
+  jq -n --arg p "${inferred_command}
+${structured}" '{"prompt": $p}'
+else
+  jq -n --arg p "$structured" '{"prompt": $p}'
+fi
