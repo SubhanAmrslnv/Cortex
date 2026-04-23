@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # @version: 1.0.2
-# TaskCreated / TaskCompleted hook — persists tasks to .cortex/cache/tasks.json.
+# TaskCreated / TaskCompleted hook — persists tasks to .claude/cache/tasks.json.
 # Reads payload from stdin. Always exits 0.
 
 if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.cortex" ]; then
-    export CORTEX_ROOT="$(pwd)/.cortex"
+  if [ -d "$(pwd)/.claude" ]; then
+    export CORTEX_ROOT="$(pwd)/.claude"
   else
-    export CORTEX_ROOT="$HOME/.cortex"
+    export CORTEX_ROOT="$(pwd)/.claude"
   fi
 fi
 command -v jq &>/dev/null || exit 0
@@ -34,7 +34,7 @@ files=$(echo "$input" | jq -c '.task.related_files // .related_files // []' 2>/d
 
 # Resolve tasks file relative to cwd or CORTEX_ROOT
 [[ -z "$cwd" || ! -d "$cwd" ]] && cwd=$(pwd)
-TASKS_FILE="$cwd/.cortex/cache/tasks.json"
+TASKS_FILE="$cwd/.claude/cache/tasks.json"
 mkdir -p "$(dirname "$TASKS_FILE")"
 
 # ─── Init file if missing ────────────────────────────────────────────────────

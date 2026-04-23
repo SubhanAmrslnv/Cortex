@@ -11,9 +11,25 @@
     "version": "1.1.1",
     "source": "core/hooks/guards/permission-denied.sh"
   },
+  "session-start.sh": {
+    "version": "1.2.0",
+    "source": "core/hooks/runtime/session-start.sh"
+  },
+  "prompt-optimizer.sh": {
+    "version": "1.6.0",
+    "source": "core/hooks/runtime/prompt-optimizer.sh"
+  },
   "post-format.sh": {
     "version": "2.4.0",
     "source": "core/hooks/runtime/post-format.sh"
+  },
+  "post-scan.sh": {
+    "version": "2.5.0",
+    "source": "core/hooks/runtime/post-scan.sh"
+  },
+  "post-code-intel.sh": {
+    "version": "1.2.0",
+    "source": "core/hooks/runtime/post-code-intel.sh"
   },
   "post-audit-log.sh": {
     "version": "1.2.0",

@@ -7,10 +7,10 @@
 set -uo pipefail
 
 if [ -z "${CORTEX_ROOT:-}" ]; then
-  if [ -d "$(pwd)/.cortex" ]; then
-    export CORTEX_ROOT="$(pwd)/.cortex"
+  if [ -d "$(pwd)/.claude" ]; then
+    export CORTEX_ROOT="$(pwd)/.claude"
   else
-    export CORTEX_ROOT="$HOME/.cortex"
+    export CORTEX_ROOT="$(pwd)/.claude"
   fi
 fi
 
