@@ -1,19 +1,11 @@
 #!/usr/bin/env bash
-# @version: 2.5.0
+# @version: 2.6.0
 # PostToolUse security scanner — registry-driven dispatcher.
 # Always runs * wildcard scanners (generic secret scan), then extension-specific.
 # Concurrency-limited (CORTEX_MAX_JOBS, default 4). Output-isolated via temp files.
 # Hash-cached to skip unchanged files (clean scans only). Path-traversal-safe.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 [[ -z "$input" ]] && exit 0
@@ -37,7 +29,7 @@ if command -v file &>/dev/null && file "$file" 2>/dev/null | grep -q "binary"; t
 fi
 
 # ── Hash cache: skip if file content unchanged (clean scan cache) ─────────
-SCAN_CACHE="$CORTEX_ROOT/cache/scans"
+SCAN_CACHE="$CORTEX_CACHE/scans"
 mkdir -p "$SCAN_CACHE" 2>/dev/null
 
 file_hash=$(sha256sum "$file" 2>/dev/null | cut -d' ' -f1 \
@@ -126,11 +118,10 @@ for out_file in "$tmp_dir"/*.out; do
 done
 
 if [[ -n "$all_output" ]]; then
-  # Emit as security_output for notification.sh consumption
   jq -n --arg o "$all_output" --arg f "$file" \
     '{"security_output": $o, "security_warnings": [{"file": $f, "message": $o}]}'
 else
-  # Clean scan — cache it
+  # Clean scan — cache the result
   [[ -n "$file_hash" ]] && touch "$SCAN_CACHE/${file_hash}.ok"
 fi
 

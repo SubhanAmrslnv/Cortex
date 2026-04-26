@@ -1,29 +1,25 @@
 #!/usr/bin/env bash
-# @version: 1.2.0
+# @version: 1.3.0
 # SessionStart project profiler — detects project type, extracts deps, entry points,
-# folder structure; writes .cortex/cache/project-profile.json.
-# Idempotent via fingerprint. Prunes scan cache entries >7 days on each run.
+# folder structure; writes .claude/cache/project-profile.json.
+# Idempotent via fingerprint. Prunes scan cache using configurable TTL (default 30 days).
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
-command -v jq &>/dev/null || exit 0
+PROFILE="$CORTEX_CACHE/project-profile.json"
+SCAN_CACHE="$CORTEX_CACHE/scans"
 
-CACHE_DIR="$CORTEX_ROOT/cache"
-PROFILE="$CACHE_DIR/project-profile.json"
-SCAN_CACHE="$CACHE_DIR/scans"
+mkdir -p "$SCAN_CACHE" 2>/dev/null
 
-mkdir -p "$CACHE_DIR" "$SCAN_CACHE" 2>/dev/null
+# Prune scan cache entries using TTL from config (default 30 days)
+SCAN_TTL_DAYS=$(cortex_config '.cache.scanTtlDays' '30')
+[[ "$SCAN_TTL_DAYS" =~ ^[0-9]+$ ]] || SCAN_TTL_DAYS=30
+find "$SCAN_CACHE" -type f -mtime "+${SCAN_TTL_DAYS}" -delete 2>/dev/null || true
 
-# Prune scan cache entries older than 7 days
-find "$SCAN_CACHE" -type f -mtime +7 -delete 2>/dev/null || true
+# Remove zero-byte or corrupt cache entries (self-healing)
+find "$SCAN_CACHE" -type f -empty -delete 2>/dev/null || true
 
-# ── Fingerprint: key manifest files mod-times + cwd ──────────────────────
+# ── Fingerprint: key manifest files mod-times + cwd ──────────────────────────
 _fingerprint() {
   {
     find . -maxdepth 2 \( \
@@ -42,7 +38,7 @@ _fingerprint() {
 
 current_fp=$(_fingerprint)
 
-if [[ -f "$PROFILE" ]]; then
+if [[ -f "$PROFILE" ]] && jq empty "$PROFILE" 2>/dev/null; then
   stored_fp=$(jq -r '.fingerprint // empty' "$PROFILE" 2>/dev/null)
   [[ "$stored_fp" == "$current_fp" ]] && exit 0
 fi
@@ -62,7 +58,7 @@ _detect_type() {
 
 project_type=$(_detect_type)
 
-# ── Dependencies ──────────────────────────────────────────────────────────
+# ── Dependencies ──────────────────────────────────────────────────────────────
 deps="[]"
 case "$project_type" in
   node)
@@ -95,7 +91,7 @@ case "$project_type" in
              | jq -Rs '[split("\n")[] | select(. != "")]' 2>/dev/null || echo "[]") ;;
 esac
 
-# ── Entry points ──────────────────────────────────────────────────────────
+# ── Entry points ──────────────────────────────────────────────────────────────
 _to_arr() { jq -Rs '[split("\n")[] | select(. != "")]'; }
 entry_points="[]"
 case "$project_type" in
@@ -123,7 +119,7 @@ case "$project_type" in
                    2>/dev/null | head -5 | _to_arr) ;;
 esac
 
-# ── Folder structure (depth 2, skip noise) ────────────────────────────────
+# ── Folder structure (depth 2, skip noise) ────────────────────────────────────
 structure=$(find . -maxdepth 2 -type d \
   -not -path "*/node_modules/*" \
   -not -path "*/.git/*" \
@@ -135,7 +131,7 @@ structure=$(find . -maxdepth 2 -type d \
   2>/dev/null | sort | head -40 \
   | jq -Rs '[split("\n")[] | select(. != "")]')
 
-# ── Write profile ─────────────────────────────────────────────────────────
+# ── Write profile ─────────────────────────────────────────────────────────────
 jq -n \
   --arg fp        "$current_fp" \
   --arg type      "$project_type" \

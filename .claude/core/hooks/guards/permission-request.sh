@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-# @version: 1.1.1
+# @version: 1.2.0
 # PermissionRequest hook — analyzes a pending tool execution and outputs a
 # structured explanation so the user can make an informed approval decision.
 # Never blocks (always exits 0); only enriches the approval prompt.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 tool=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null)
@@ -38,7 +31,7 @@ fi
 if echo "$cmd" | grep -qiE '(^|\s)(sudo|su\s|chmod|chown|systemctl|service|mount|umount|iptables|useradd|groupadd|passwd)(\s|$)|(/etc/|/sys/|/proc/|/dev/)'; then
   intent="system_operation"
 fi
-# git and system can overlap; system_operation takes precedence over git
+# system_operation takes precedence over git
 if echo "$cmd" | grep -qiE '(^|\s)sudo(\s|$)'; then
   intent="system_operation"
 fi
@@ -167,7 +160,7 @@ echo "$cmd" | grep -qE '\s--no-verify(\s|$)' && \
 [[ -z "$suggestion" ]] && suggestion="null"
 
 # ---------------------------------------------------------------------------
-# 5. Requires confirmation — always true (this hook informs, never auto-approves)
+# 5. Output — requires confirmation always (this hook only informs)
 # ---------------------------------------------------------------------------
 jq -n \
   --arg  intent               "$intent" \

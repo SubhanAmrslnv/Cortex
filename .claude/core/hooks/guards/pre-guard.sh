@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 2.3.0
+# @version: 2.4.0
 # PreToolUse advanced guard — risk-scoring engine.
 # Scores the incoming Bash command across 5 risk categories + branch context,
 # then blocks (exit 1), warns (exit 0 + JSON), or allows silently.
@@ -9,14 +9,7 @@
 #   risk 30-69 → allow with warning
 #   risk ≥ 70  → block
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 [[ -z "$input" ]] && exit 0
@@ -24,14 +17,10 @@ cmd=$(echo "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)
 [[ -z "$cmd" ]] && exit 0
 
 # Load configurable thresholds from cortex.config.json (defaults: warn=30, block=70)
-WARN_THRESHOLD=30
-BLOCK_THRESHOLD=70
-_cfg="$CORTEX_ROOT/config/cortex.config.json"
-if [[ -f "$_cfg" ]]; then
-  read -r _warn _block <<< "$(jq -r '"\(.riskThresholds.warn // 30) \(.riskThresholds.block // 70)"' "$_cfg" 2>/dev/null)"
-  [[ "$_warn"  =~ ^[0-9]+$ ]] && WARN_THRESHOLD=$_warn
-  [[ "$_block" =~ ^[0-9]+$ ]] && BLOCK_THRESHOLD=$_block
-fi
+WARN_THRESHOLD=$(cortex_config '.riskThresholds.warn' '30')
+BLOCK_THRESHOLD=$(cortex_config '.riskThresholds.block' '70')
+[[ "$WARN_THRESHOLD"  =~ ^[0-9]+$ ]] || WARN_THRESHOLD=30
+[[ "$BLOCK_THRESHOLD" =~ ^[0-9]+$ ]] || BLOCK_THRESHOLD=70
 
 risk=0
 reasons=""

@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-# @version: 1.1.1
+# @version: 1.2.0
 # PermissionDenied hook — analyzes a denied command, infers the denial reason,
 # generates a safe alternative, and decides whether a retry is appropriate.
 # Always exits 0; never executes anything.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 cmd=$(echo "$input"             | jq -r '.command // empty' 2>/dev/null)
@@ -26,7 +19,6 @@ message=""
 
 # ---------------------------------------------------------------------------
 # Helper — apply a sed transform only if the pattern matches
-# Returns 0 and sets safe_cmd if transformation was made, 1 otherwise
 # ---------------------------------------------------------------------------
 try_transform() {
   local pattern="$1" replacement="$2"
@@ -39,7 +31,6 @@ try_transform() {
 
 # ---------------------------------------------------------------------------
 # Transformation table — evaluated in priority order
-# Each block: sets reason, attempts transform, sets retry + message
 # ---------------------------------------------------------------------------
 
 # 1. rm -rf / rm -fr
@@ -98,7 +89,6 @@ elif echo "$cmd" | grep -qiE '(curl|wget)(\s+\S+)*\s*\|\s*(bash|sh|zsh|python[23
 elif echo "$cmd" | grep -qE '(^|\s)sudo\s'; then
   reason="privilege escalation: sudo grants unrestricted root access"
   safe_cmd=$(echo "$cmd" | sed -E 's/(^|[;&|]+[[:space:]]*)sudo[[:space:]]+/\1/g')
-  # If desudo'd command is empty or same, don't retry
   if [[ "$safe_cmd" == "$cmd" || -z "$(echo "$safe_cmd" | tr -d '[:space:]')" ]]; then
     safe_cmd=""
     retry=false
@@ -151,7 +141,6 @@ else
   message="No safe alternative could be determined automatically. Review the command and retry manually."
 fi
 
-# Use provided_reason if it was supplied, but keep inferred reason as fallback
 [[ -n "$provided_reason" && -z "$reason" ]] && reason="$provided_reason"
 
 # ---------------------------------------------------------------------------

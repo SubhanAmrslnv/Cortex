@@ -1,23 +1,16 @@
 #!/usr/bin/env bash
-# @version: 1.0.2
+# @version: 1.1.0
 # TaskCreated / TaskCompleted hook — persists tasks to .claude/cache/tasks.json.
 # Reads payload from stdin. Always exits 0.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 [[ -z "$input" ]] && exit 0
 
 event="${HOOK_EVENT:-}"
 
-# ─── Single-pass input extraction (7 jq spawns → 2) ─────────────────────────
+# ─── Single-pass input extraction ────────────────────────────────────────────
 mapfile -t _f < <(echo "$input" | jq -r '
   (.hook_event // .event // ""),
   (.cwd // ""),
@@ -42,8 +35,8 @@ if [[ ! -f "$TASKS_FILE" ]]; then
   echo '{"tasks":[]}' > "$TASKS_FILE"
 fi
 
-# Validate JSON integrity; reset if corrupt
-if ! jq empty "$TASKS_FILE" 2>/dev/null; then
+# Validate JSON integrity; reset if corrupt or zero-byte
+if [[ ! -s "$TASKS_FILE" ]] || ! jq empty "$TASKS_FILE" 2>/dev/null; then
   echo '{"tasks":[]}' > "$TASKS_FILE"
 fi
 
@@ -61,7 +54,6 @@ if [[ "$event" == "TaskCreated" || "$event" == "task_created" ]]; then
   [[ -z "$status" ]] && status="pending"
   [[ -z "$title"  ]] && title="Untitled task"
 
-  # Generate ID if missing
   if [[ -z "$task_id" ]]; then
     task_id="task-$(date -u +%s)-$$"
   fi
@@ -74,7 +66,6 @@ if [[ "$event" == "TaskCreated" || "$event" == "task_created" ]]; then
     exit 0
   fi
 
-  # Build metadata object
   meta=$(jq -n \
     --arg priority "$priority" \
     --arg agent    "$agent" \
@@ -83,7 +74,6 @@ if [[ "$event" == "TaskCreated" || "$event" == "task_created" ]]; then
      (if $agent != "" then {agent:$agent} else {} end) +
      (if ($files | length) > 0 then {related_files:$files} else {} end)')
 
-  # Append task
   new_state=$(jq \
     --arg id     "$task_id" \
     --arg title  "$title" \
@@ -117,7 +107,6 @@ if [[ "$event" == "TaskCompleted" || "$event" == "task_completed" ]]; then
     exit 0
   fi
 
-  # Check task exists
   exists=$(jq --arg id "$task_id" '[.tasks[] | select(.id == $id)] | length' "$TASKS_FILE")
   if [[ "$exists" -eq 0 ]]; then
     jq -n --arg id "$task_id" '{"success":false,"error":"Task not found","id":$id}'
@@ -140,9 +129,9 @@ if [[ "$event" == "TaskCompleted" || "$event" == "task_completed" ]]; then
   exit 0
 fi
 
-# ─── TaskUpdated (status change mid-lifecycle) ────────────────────────────────
+# ─── TaskUpdated ──────────────────────────────────────────────────────────────
 if [[ "$event" == "TaskUpdated" || "$event" == "task_updated" ]]; then
-  new_status="$status"   # already extracted in single-pass above
+  new_status="$status"
 
   if [[ -z "$task_id" || -z "$new_status" ]]; then
     jq -n '{"success":false,"error":"Missing task id or status"}'

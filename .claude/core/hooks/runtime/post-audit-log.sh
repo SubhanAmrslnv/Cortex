@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-# @version: 1.2.0
-# PostToolUse audit logger — appends structured JSON entries to ~/.claude/audit.log.
+# @version: 1.3.0
+# PostToolUse audit logger — appends structured JSON entries to .claude/logs/audit.log.
 # Features: log rotation, flock concurrency safety, secret masking, payload truncation.
-# Payload delivered via stdin by Claude Code.
+# Log stays project-local; no writes to $HOME.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 [[ -z "$input" ]] && exit 0
@@ -42,11 +35,8 @@ log_entry=$(jq -n \
 # Fallback to plain text if jq assembly fails
 [[ -z "$log_entry" ]] && log_entry="{\"time\":\"$(date -Iseconds)\",\"tool\":\"$tool_name\",\"input\":{}}"
 
-LOG_FILE="$HOME/.claude/audit.log"
+LOG_FILE="$CORTEX_LOGS/audit.log"
 MAX_SIZE=5000000  # 5 MB
-
-# Ensure log directory exists
-mkdir -p "$HOME/.claude"
 
 # Log rotation — keep one backup
 if [[ -f "$LOG_FILE" ]]; then

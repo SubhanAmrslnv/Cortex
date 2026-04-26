@@ -1,19 +1,14 @@
 #!/usr/bin/env bash
-# @version: 1.2.0
+# @version: 1.3.0
 # PostToolUse code intelligence — analyzes .cs .js .ts .jsx .tsx files (≤1MB).
 # Single combined pass: complexity (methods >50 lines, nesting >3), duplication
 # (6-line sliding window cksum), naming (non-descriptive vars, capped 3/file),
 # structure (>500 lines, mixed UI+data-access). Outputs JSON. Read-only.
+#
+# Issues accumulated as raw JSON strings; single jq call at the end eliminates
+# the O(n) per-issue jq-spawn pattern from the previous version.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 [[ -z "$input" ]] && exit 0
@@ -36,22 +31,23 @@ content=$(cat "$file" 2>/dev/null)
 [[ -z "$content" ]] && exit 0
 
 total_lines=$(echo "$content" | wc -l)
-issues_json="[]"
+
+# Accumulate issues as raw JSON strings — emitted in one jq call at end
+declare -a issue_parts=()
 
 _add_issue() {
   local type="$1" line="${2:-0}" message="$3"
+  # Escape for safe JSON embedding
+  local msg_esc="${message//\\/\\\\}"
+  msg_esc="${msg_esc//\"/\\\"}"
   if [[ "$line" -gt 0 ]]; then
-    issues_json=$(echo "$issues_json" | jq \
-      --arg t "$type" --argjson l "$line" --arg m "$message" \
-      '. += [{"type":$t,"line":$l,"message":$m}]')
+    issue_parts+=( "{\"type\":\"$type\",\"line\":$line,\"message\":\"$msg_esc\"}" )
   else
-    issues_json=$(echo "$issues_json" | jq \
-      --arg t "$type" --arg m "$message" \
-      '. += [{"type":$t,"message":$m}]')
+    issue_parts+=( "{\"type\":\"$type\",\"message\":\"$msg_esc\"}" )
   fi
 }
 
-# ── 1. Complexity: methods >50 lines + nesting depth >3 ──────────────────
+# ── 1. Complexity: methods >50 lines + nesting depth >3 ──────────────────────
 # Single brace-depth tracking pass — detects both in one read.
 cur_depth=0
 method_start=0
@@ -92,14 +88,15 @@ while IFS= read -r line; do
   fi
 done <<< "$content"
 
-# ── 2. Duplication: 6-line sliding window cksum ───────────────────────────
+# ── 2. Duplication: 6-line sliding window cksum ───────────────────────────────
 if command -v cksum &>/dev/null; then
   declare -A seen_sums
   win_num=0
+  # Simple, correct sliding window (no buggy primary awk)
   while IFS= read -r chunk; do
     (( win_num++ ))
     normalized=$(echo "$chunk" | tr -s ' \t')
-    [[ ${#normalized} -lt 30 ]] && continue  # skip trivial windows
+    [[ ${#normalized} -lt 30 ]] && continue
     sum=$(echo "$normalized" | cksum | cut -d' ' -f1)
     if [[ -n "${seen_sums[$sum]+_}" ]]; then
       first=${seen_sums[$sum]}
@@ -108,16 +105,12 @@ if command -v cksum &>/dev/null; then
     else
       seen_sums[$sum]=$win_num
     fi
-  done < <(awk 'NR==1{for(i=1;i<=NF;i++)buf[i]=$0;next}
-                {buf[NR%6+1]=$0; s=""; for(k=1;k<=6;k++) s=s buf[k] "\n"; print s}
-                END{if(NR>=6){s="";for(k=1;k<=6;k++) s=s buf[k] "\n"; print s}}
-               ' RS='\n' ORS='' <(echo "$content") 2>/dev/null \
-         || awk 'BEGIN{n=0}{lines[++n]=$0}
-                 END{for(i=1;i<=n-5;i++){s="";for(j=i;j<i+6;j++)s=s lines[j] "\n";print s}}
+  done < <(awk 'BEGIN{n=0}{lines[++n]=$0}
+                END{for(i=1;i<=n-5;i++){s="";for(j=i;j<i+6;j++)s=s lines[j]"\n";print s}}
                ' <<< "$content" 2>/dev/null)
 fi
 
-# ── 3. Naming: non-descriptive variable names (capped at 3) ───────────────
+# ── 3. Naming: non-descriptive variable names (capped at 3) ───────────────────
 naming_count=0
 bad_pattern='^\s*(var|let|const|auto|val|int|string|bool|def)\s+(temp|data|obj|result|item|value|thing|foo|bar|baz|tmp|buf|ret|res|x|y|z)\b'
 while IFS=: read -r ln _; do
@@ -128,7 +121,7 @@ while IFS=: read -r ln _; do
   (( naming_count++ ))
 done < <(grep -nE "$bad_pattern" "$file" 2>/dev/null | head -3)
 
-# ── 4. Structure: file >500 lines; mixed UI + data-access ────────────────
+# ── 4. Structure: file >500 lines; mixed UI + data-access ────────────────────
 if [[ $total_lines -gt 500 ]]; then
   _add_issue "structure" 0 \
     "File is $total_lines lines (>500) — split into focused modules"
@@ -144,9 +137,11 @@ if [[ $has_ui -eq 1 && $has_data -eq 1 ]]; then
     "File mixes UI rendering and data-access — separate into view and service layers"
 fi
 
-# ── Output ─────────────────────────────────────────────────────────────────
-issue_count=$(echo "$issues_json" | jq 'length')
-[[ "$issue_count" -eq 0 ]] && exit 0
+# ── Output — single jq call to build the full response ────────────────────────
+[[ ${#issue_parts[@]} -eq 0 ]] && exit 0
+
+issues_json=$(printf '%s,' "${issue_parts[@]}")
+issues_json="[${issues_json%,}]"
 
 jq -n \
   --arg path "$file" \

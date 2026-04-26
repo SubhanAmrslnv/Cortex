@@ -1,20 +1,12 @@
 #!/usr/bin/env bash
-# @version: 1.6.0
-# UserPromptSubmit structured prompt engine — detects intent, scores command routing,
-# finds relevant files via keyword + stack-trace heuristics (single find pass),
-# extracts ±20-line snippets, loads project profile, outputs enriched prompt.
+# @version: 2.0.0
+# UserPromptSubmit structured prompt engine.
+# Detects intent, scores command routing, finds top-2 relevant files via keyword
+# heuristics (single find pass), extracts ±10-line snippets (reduced from ±20),
+# and outputs an enriched prompt. Context is capped to prevent token bloat.
 # --y suffix: strip flag, inject GLOBAL ANSWER POLICY (YES-default).
-# Reads payload JSON from stdin. Outputs {"prompt": "..."} or exits 0 to pass through.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 [[ -z "$input" ]] && exit 0
@@ -22,14 +14,17 @@ input=$(cat)
 prompt=$(echo "$input" | jq -r '.prompt // empty' 2>/dev/null)
 [[ -z "$prompt" ]] && exit 0
 
-# ── --y flag handling ─────────────────────────────────────────────────────
+# Skip enrichment for very long prompts — already rich in context
+(( ${#prompt} > 6000 )) && exit 0
+
+# ── --y flag handling ─────────────────────────────────────────────────────────
 yes_mode=0
 if [[ "$prompt" =~ (^|[[:space:]])--y([[:space:]]|$) || "$prompt" == *" --y" || "$prompt" == "--y" ]]; then
   yes_mode=1
   prompt=$(echo "$prompt" | sed 's/[[:space:]]*--y[[:space:]]*$//' | sed 's/[[:space:]]*--y[[:space:]]/ /g' | xargs)
 fi
 
-# ── Intent detection ──────────────────────────────────────────────────────
+# ── Intent detection ──────────────────────────────────────────────────────────
 prompt_lower=$(echo "$prompt" | tr '[:upper:]' '[:lower:]')
 intent="question"
 
@@ -41,8 +36,7 @@ elif echo "$prompt_lower" | grep -qE '\b(refactor|clean up|improve|optimize|simp
   intent="refactor"
 fi
 
-# ── Scored command routing ────────────────────────────────────────────────
-# Score the prompt against known Cortex commands; emit hint if confident.
+# ── Scored command routing ────────────────────────────────────────────────────
 command_hint=""
 declare -A cmd_scores
 for cmd_pattern in \
@@ -77,23 +71,26 @@ for cmd in "${!cmd_scores[@]}"; do
 done
 [[ $best_score -ge 2 ]] && command_hint="/$best_cmd"
 
-# ── Load project profile ──────────────────────────────────────────────────
-PROFILE="$CORTEX_ROOT/cache/project-profile.json"
+# ── Load project profile ──────────────────────────────────────────────────────
+PROFILE="$CORTEX_CACHE/project-profile.json"
 project_type="unknown"
-if [[ -f "$PROFILE" ]]; then
+if [[ -f "$PROFILE" ]] && jq empty "$PROFILE" 2>/dev/null; then
   project_type=$(jq -r '.project_type // "unknown"' "$PROFILE" 2>/dev/null)
 fi
 
-# ── Extract keywords from prompt ──────────────────────────────────────────
+# ── Extract keywords from prompt ──────────────────────────────────────────────
 mapfile -t keywords < <(
   echo "$prompt_lower" \
   | tr -s ' \t\n.,;:!?()[]{}=<>/\\@#$%^&*`"'"'" '\n' \
   | awk 'length >= 4' \
   | grep -vxE '(this|that|with|from|have|will|would|could|should|about|some|into|over|when|then|than|your|their|they|what|which|also|just|more|make|need|want|like|know|here|there|where|does|been|only|very|much|each|such|many|both|most|find|show|give|tell|help|please|using|code|file|line|func|function|method|class|type|variable|return|import|export|true|false|null|void)' \
-  | sort -u | head -10
+  | sort -u | head -8
 )
 
-# ── File discovery: single find pass over source files ───────────────────
+# Skip enrichment if no meaningful keywords extracted
+[[ ${#keywords[@]} -eq 0 ]] && exit 0
+
+# ── File discovery: single find pass over source files ───────────────────────
 declare -a find_names
 case "$project_type" in
   dotnet) find_names=("-name" "*.cs") ;;
@@ -116,15 +113,16 @@ mapfile -t all_files < <(
     -not -path "*/target/*" \
     -not -path "*/__pycache__/*" \
     -not -path "*/.venv/*" \
-    2>/dev/null | head -500
+    2>/dev/null | head -300
 )
 
-# ── Score files by relevance ──────────────────────────────────────────────
+[[ ${#all_files[@]} -eq 0 ]] && exit 0
+
+# ── Score files by relevance ──────────────────────────────────────────────────
 declare -A file_scores
 
-# Keyword-based filename scoring
+# Keyword-based filename scoring (+3 per keyword match in filename)
 for kw in "${keywords[@]}"; do
-  [[ ${#kw} -lt 4 ]] && continue
   for f in "${all_files[@]}"; do
     fname=$(basename "${f%.*}" | tr '[:upper:]' '[:lower:]')
     if [[ "$fname" == *"$kw"* ]]; then
@@ -133,7 +131,7 @@ for kw in "${keywords[@]}"; do
   done
 done
 
-# Stack-trace heuristic: file references in prompt (name.ext or name.ext:line)
+# Stack-trace heuristic: file references in prompt (+5 per direct reference)
 while IFS= read -r ref; do
   [[ -z "$ref" ]] && continue
   ref_base=$(basename "$ref" | cut -d: -f1 | tr '[:upper:]' '[:lower:]')
@@ -142,39 +140,85 @@ while IFS= read -r ref; do
     [[ "$fbase" == "$ref_base" ]] && \
       file_scores["$f"]=$(( ${file_scores["$f"]:-0} + 5 ))
   done
-done < <(echo "$prompt" | grep -oE '[A-Za-z0-9_/.-]+\.(cs|ts|tsx|js|jsx|py|go|rs|java)(:[0-9]+)?' 2>/dev/null | head -10)
+done < <(echo "$prompt" | grep -oE '[A-Za-z0-9_/.-]+\.(cs|ts|tsx|js|jsx|py|go|rs|java)(:[0-9]+)?' 2>/dev/null | head -5)
 
-# Sort by score, top 3
+# Sort by score descending, top 2 only (reduced from 3 to limit context)
 mapfile -t top_files < <(
   for f in "${!file_scores[@]}"; do
     echo "${file_scores[$f]} $f"
-  done | sort -rn | head -3 | awk '{print $2}'
+  done | sort -rn | head -2 | awk '{print $2}'
 )
 
-# ── Extract ±20-line snippets ─────────────────────────────────────────────
+# Require minimum relevance score to avoid injecting noise
+filtered_files=()
+for f in "${top_files[@]}"; do
+  score=${file_scores["$f"]:-0}
+  (( score >= 3 )) && filtered_files+=("$f")
+done
+top_files=("${filtered_files[@]}")
+
+[[ ${#top_files[@]} -eq 0 ]] && {
+  # No relevant files found — emit minimal enrichment (intent only)
+  context_block="[CORTEX]
+intent: ${intent}
+project: ${project_type}"
+  [[ -n "$command_hint" ]] && context_block="${context_block}
+suggested_command: ${command_hint}"
+  context_block="${context_block}
+[/CORTEX]"
+
+  enriched="${context_block}
+
+${prompt}"
+
+  if [[ $yes_mode -eq 1 ]]; then
+    enriched="${enriched}
+
+[GLOBAL ANSWER POLICY]
+Default all binary decisions to YES. Skip confirmation prompts for non-destructive operations. Proceed directly with the requested action. Security risks and destructive operations (rm -rf, DROP TABLE, force-push to main) remain protected."
+  fi
+
+  jq -n --arg p "$enriched" '{"prompt": $p}'
+  exit 0
+}
+
+# ── Extract ±10-line snippets (reduced from ±20 for lower token usage) ────────
 snippets=""
+total_snippet_lines=0
+MAX_SNIPPET_LINES=80  # hard cap across all files
+
 for f in "${top_files[@]}"; do
   [[ ! -f "$f" ]] && continue
   fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null || echo 0)
-  (( fsize > 102400 )) && continue
+  (( fsize > 102400 )) && continue  # skip files >100KB for snippets
 
+  (( total_snippet_lines >= MAX_SNIPPET_LINES )) && break
+
+  # Single grep pass with all keywords combined (avoids N separate grep spawns)
+  kw_pattern=$(IFS='|'; echo "${keywords[*]}")
   best_line=1
-  for kw in "${keywords[@]}"; do
-    [[ ${#kw} -lt 4 ]] && continue
-    found=$(grep -ni "$kw" "$f" 2>/dev/null | head -1 | cut -d: -f1)
-    [[ -n "$found" ]] && best_line=$found && break
-  done
+  if [[ -n "$kw_pattern" ]]; then
+    found=$(grep -niE "$kw_pattern" "$f" 2>/dev/null | head -1 | cut -d: -f1)
+    [[ -n "$found" ]] && best_line=$found
+  fi
 
-  start=$(( best_line - 20 )); (( start < 1 )) && start=1
-  end=$(( best_line + 20 ))
+  start=$(( best_line - 10 )); (( start < 1 )) && start=1
+  end=$(( best_line + 10 ))
+
+  remaining=$(( MAX_SNIPPET_LINES - total_snippet_lines ))
+  (( end - start + 1 > remaining )) && end=$(( start + remaining - 1 ))
 
   chunk=$(sed -n "${start},${end}p" "$f" 2>/dev/null)
-  [[ -n "$chunk" ]] && snippets="${snippets}
+  if [[ -n "$chunk" ]]; then
+    chunk_lines=$(echo "$chunk" | wc -l)
+    snippets="${snippets}
 --- ${f} (lines ${start}–${end}) ---
 ${chunk}"
+    total_snippet_lines=$(( total_snippet_lines + chunk_lines ))
+  fi
 done
 
-# ── Build enriched prompt ─────────────────────────────────────────────────
+# ── Build enriched prompt ─────────────────────────────────────────────────────
 context_block="[CORTEX]
 intent: ${intent}
 project: ${project_type}"

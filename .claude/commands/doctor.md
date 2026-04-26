@@ -13,26 +13,30 @@ Flags may be combined. If no flags: read-only diagnostics only.
 
 ## SETUP
 
-Read `~/.claude/cortex.env` to extract `CORTEX_ROOT`.
+Cortex is strictly project-local. Resolve CORTEX_ROOT from the project directory:
 
-If missing:
+If `$CORTEX_ROOT` is set in the environment, use it. Otherwise use `$(pwd)/.claude`.
+
+If the resolved path does not exist:
 ```
 [FAIL]
 
-ERROR: cortex.env not found
-DETAILS: ~/.claude/cortex.env does not exist
+ERROR: .claude directory not found
+DETAILS: $(pwd)/.claude does not exist — Cortex is not installed in this project
 WHY: CORTEX_ROOT cannot be resolved — all Cortex checks will fail
-FIX: run /init-cortex
+FIX: run /init-cortex from the project root that contains .claude/
 ```
 Stop immediately.
 
 Define:
-- `CORTEX_DIR` = `$CORTEX_ROOT/.cortex`
+- `CORTEX_DIR` = `$CORTEX_ROOT` (i.e., `.claude/`)
 - `HOOKS_SRC` = `$CORTEX_DIR/core/hooks`
+- `SHARED_DIR` = `$CORTEX_DIR/core/shared`
 - `SCANNERS_SRC` = `$CORTEX_DIR/core/scanners`
 - `REGISTRY` = `$CORTEX_DIR/registry`
-- `COMMANDS_DIR` = `$CORTEX_ROOT/.claude/commands`
-- `RUNTIME_HOOKS` = `~/.claude/hooks`
+- `COMMANDS_DIR` = `$CORTEX_DIR/commands`
+
+There is no global `~/.claude/hooks/` directory. All hooks run directly from `$HOOKS_SRC/`.
 
 Collect all issues into a list. Track the highest severity seen (PASS → WARN → FAIL).
 
@@ -48,17 +52,20 @@ Verify each required path exists:
 |---|---|
 | `$CORTEX_DIR/core/` | YES |
 | `$CORTEX_DIR/core/hooks/` | YES |
+| `$CORTEX_DIR/core/hooks/guards/` | YES |
+| `$CORTEX_DIR/core/hooks/runtime/` | YES |
+| `$CORTEX_DIR/core/shared/bootstrap.sh` | YES |
 | `$CORTEX_DIR/core/scanners/` | YES |
 | `$CORTEX_DIR/registry/` | YES |
 | `$CORTEX_DIR/config/` | YES |
 | `$COMMANDS_DIR` | YES |
 
-For each missing path, add:
+For each missing path:
 ```
 TYPE: ERROR
-TITLE: Required directory missing
+TITLE: Required path missing
 DETAILS: <path> does not exist
-WHY: Cortex cannot load hooks, scanners, or commands without this directory
+WHY: Cortex cannot load hooks, scanners, or commands without this path
 FIX: run /init-cortex to restore the Cortex directory structure
 ```
 
@@ -72,7 +79,7 @@ TYPE: ERROR
 TITLE: commands.json not found
 DETAILS: $REGISTRY/commands.json does not exist
 WHY: command registry is required to validate command availability
-FIX: restore commands.json from .cortex/registry/commands.json in the Cortex source repo
+FIX: restore commands.json from the Cortex source repository
 ```
 
 For each command name in the `commands` array, check `$COMMANDS_DIR/<name>.md` exists.
@@ -81,8 +88,8 @@ If missing:
 TYPE: ERROR
 TITLE: Command file missing: <name>
 DETAILS: $COMMANDS_DIR/<name>.md is listed in commands.json but does not exist on disk
-WHY: /name cannot be invoked — the command runner will exit non-zero
-FIX: create $COMMANDS_DIR/<name>.md delegating to $CORTEX_DIR/commands/<name>.md
+WHY: /<name> cannot be invoked — the command runner will exit non-zero
+FIX: create $COMMANDS_DIR/<name>.md with the command implementation
 ```
 
 ### CHECK 3 — hooks.json
@@ -94,8 +101,8 @@ If missing:
 TYPE: ERROR
 TITLE: hooks.json not found
 DETAILS: $REGISTRY/hooks.json does not exist
-WHY: hook registry is required for version-aware deployment
-FIX: restore hooks.json from the Cortex source repo
+WHY: hook registry is required for version validation
+FIX: restore hooks.json from the Cortex source repository
 ```
 
 For each entry in hooks.json:
@@ -105,7 +112,7 @@ a. Check `source` and `version` fields exist. If either is absent:
 TYPE: ERROR
 TITLE: Malformed hooks.json entry: <key>
 DETAILS: entry is missing the '<field>' field
-WHY: /init-cortex cannot deploy this hook without a valid source path and version
+WHY: /init-cortex cannot validate this hook without a valid source path and version
 FIX: add missing '<field>' field to the <key> entry in hooks.json
 ```
 
@@ -114,8 +121,21 @@ b. Check `$CORTEX_DIR/<source>` exists. If not:
 TYPE: ERROR
 TITLE: Hook source file missing: <key>
 DETAILS: $CORTEX_DIR/<source> does not exist on disk
-WHY: hook cannot be deployed or validated without its source file
+WHY: hook cannot fire — Claude Code will invoke a missing script
 FIX: restore <source> from the Cortex repository
+```
+
+c. Verify the hook sources bootstrap.sh on its first executable line:
+```bash
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
+```
+If the hook still contains an inline `if [ -z "$CORTEX_ROOT" ]` block:
+```
+TYPE: WARNING
+TITLE: Hook not using bootstrap: <key>
+DETAILS: <hook-name> has an inline CORTEX_ROOT block instead of sourcing bootstrap.sh
+WHY: bootstrap.sh is the single source of truth for path resolution and validation
+FIX: replace the inline block with: source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 ```
 
 ### CHECK 4 — scanners.json
@@ -128,7 +148,7 @@ TYPE: ERROR
 TITLE: scanners.json not found
 DETAILS: $REGISTRY/scanners.json does not exist
 WHY: post-scan.sh and post-format.sh are registry-driven and cannot dispatch without this file
-FIX: restore scanners.json from the Cortex source repo
+FIX: restore scanners.json from the Cortex source repository
 ```
 
 For each extension key (excluding `*`) and each scanner path in its array, check `$CORTEX_DIR/core/scanners/<path>` exists.
@@ -137,108 +157,87 @@ If missing:
 TYPE: WARNING
 TITLE: Scanner file missing: <path>
 DETAILS: <path> is mapped in scanners.json but $CORTEX_DIR/core/scanners/<path> does not exist
-WHY: files with extension <ext> will not be scanned — security issues or formatting errors may go undetected
+WHY: files with extension <ext> will not be scanned — security issues may go undetected
 FIX: create the scanner script at $CORTEX_DIR/core/scanners/<path> or remove the mapping from scanners.json
 ```
 
-### CHECK 5 — Hook deployment and version validation
+### CHECK 5 — Hook version validation
 
 For each hook in hooks.json:
 
-a. Read the source file at `$CORTEX_DIR/<source>`. Locate the line matching `^# @version:` (line 1 or 2). Extract the version string. If no version tag found, treat as `0.0.0` and add:
+a. Read the source file at `$CORTEX_DIR/<source>`. Locate `^# @version:` (line 1 or 2). Extract the version. If absent, treat as `0.0.0`:
 ```
 TYPE: WARNING
 TITLE: Hook missing version tag: <hook-name>
 DETAILS: $CORTEX_DIR/<source> has no '# @version: X.Y.Z' line
-WHY: /init-cortex cannot perform version-aware deployment — hook may be redeployed unnecessarily or skipped
+WHY: /init-cortex cannot perform version-aware tracking
 FIX: add '# @version: X.Y.Z' on line 2 of <source>
 ```
 
-b. Check if the deployed file `$RUNTIME_HOOKS/<hook-name>` exists. If not:
-```
-TYPE: ERROR
-TITLE: Hook not deployed: <hook-name>
-DETAILS: $RUNTIME_HOOKS/<hook-name> does not exist
-WHY: Claude Code cannot invoke this hook — the event it guards is unprotected
-FIX: run /init-cortex
-```
-
-c. If deployed: read the runtime file's `# @version:` line. Compare source version vs runtime version (compare major, minor, patch as integers):
-- source > runtime:
-```
-TYPE: ERROR
-TITLE: Hook outdated in runtime: <hook-name>
-DETAILS: source version <src_ver> is newer than deployed version <rt_ver>
-WHY: the deployed hook is running old logic — security rules or formatting may be incorrect
-FIX: run /init-cortex
-```
-- source < runtime:
+b. Compare the source `# @version:` against the version in hooks.json:
+- source > registry:
 ```
 TYPE: WARNING
-TITLE: Runtime hook ahead of source: <hook-name>
-DETAILS: runtime version <rt_ver> is newer than source version <src_ver>
-WHY: deployed hook may contain untracked changes that will be lost on next /init-cortex
-FIX: update the source file at $CORTEX_DIR/<source> to match the runtime version, then increment the version tag
+TITLE: Hook version not synced in registry: <hook-name>
+DETAILS: source version <src_ver> is newer than registry version <reg_ver>
+WHY: /init-cortex version checks will be inaccurate — the hook may appear current when it isn't
+FIX: update hooks.json version for <hook-name> to <src_ver>
+```
+- source < registry:
+```
+TYPE: WARNING
+TITLE: Registry version ahead of source: <hook-name>
+DETAILS: registry version <reg_ver> is newer than source file version <src_ver>
+WHY: registry may reflect intended version before source was updated
+FIX: bump the # @version: tag in $CORTEX_DIR/<source> to match hooks.json
 ```
 
-d. Check `stop-build.sh` exists at `$HOOKS_SRC/runtime/stop-build.sh`:
+c. Check `stop-build.sh` exists at `$HOOKS_SRC/runtime/stop-build.sh`:
 ```
 TYPE: ERROR
 TITLE: stop-build.sh missing
 DETAILS: $HOOKS_SRC/runtime/stop-build.sh does not exist
 WHY: the Stop hook will fail silently — build errors will not be reported after session end
-FIX: restore stop-build.sh from the Cortex source repo
+FIX: restore stop-build.sh from the Cortex source repository
 ```
 
 ### CHECK 6 — settings.json wiring
 
-Read `~/.claude/settings.json`.
+Read `$CORTEX_DIR/settings.json`.
 
 If missing:
 ```
 TYPE: ERROR
 TITLE: settings.json not found
-DETAILS: ~/.claude/settings.json does not exist
+DETAILS: $CORTEX_DIR/settings.json does not exist
 WHY: no hooks are wired to Claude Code events — the entire Cortex runtime is inactive
-FIX: run /init-cortex
+FIX: restore settings.json from the Cortex source repository
 ```
 
-For each hook name in hooks.json, verify a `command` entry referencing `~/.claude/hooks/<hook-name>` exists in the hooks block.
-If missing:
+For each hook name in hooks.json, verify a `command` entry exists in the hooks block whose path follows the project-local pattern:
+```
+bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/<guards|runtime>/<hook-name>
+```
+
+If any entry uses `~/.claude/hooks/` (the old global model):
+```
+TYPE: ERROR
+TITLE: Stale global path in settings.json: <hook-name>
+DETAILS: settings.json entry for <hook-name> references ~/.claude/hooks/ — the old global-install path
+WHY: Cortex is now strictly project-local; the global path no longer exists
+FIX: replace the path with: bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/<subdir>/<hook-name>
+```
+
+If an entry is missing entirely:
 ```
 TYPE: ERROR
 TITLE: Hook not wired: <hook-name>
-DETAILS: settings.json has no command entry referencing ~/.claude/hooks/<hook-name>
+DETAILS: settings.json has no command entry for <hook-name>
 WHY: <hook-name> will never fire — its guarded events have no protection
-FIX: add the wiring entry for <hook-name> to ~/.claude/settings.json hooks block
+FIX: add: bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/<subdir>/<hook-name>
 ```
 
-Check the Stop hook entry points to `$HOOKS_SRC/runtime/stop-build.sh` (absolute path):
-- Points to `~/.claude/hooks/stop-build.sh` instead:
-```
-TYPE: ERROR
-TITLE: Stop hook misconfigured
-DETAILS: Stop hook points to ~/.claude/hooks/stop-build.sh — must point directly to .cortex source
-WHY: stop-build.sh is not deployed to ~/.claude/hooks/ — it runs from .cortex directly; this path will not resolve
-FIX: update the Stop hook command in settings.json to point to $HOOKS_SRC/runtime/stop-build.sh
-```
-- Missing entirely:
-```
-TYPE: ERROR
-TITLE: Stop hook missing from settings.json
-DETAILS: no Stop hook entry found in ~/.claude/settings.json
-WHY: build errors will not be surfaced after session end
-FIX: add a Stop hook entry pointing to $HOOKS_SRC/runtime/stop-build.sh
-```
-
-Check for stale `.claude/.cortex/` references:
-```
-TYPE: WARNING
-TITLE: Stale hook path in settings.json
-DETAILS: settings.json contains a reference to .claude/.cortex/ — this is the old hook path pattern
-WHY: hooks no longer live under .claude/ — these references will not resolve
-FIX: replace all .claude/.cortex/ paths in settings.json with ~/.cortex/ paths
-```
+Check the Stop hook entry points to `$HOOKS_SRC/runtime/stop-build.sh` via the `${CORTEX_ROOT:-...}` pattern.
 
 ---
 
@@ -246,7 +245,7 @@ FIX: replace all .claude/.cortex/ paths in settings.json with ~/.cortex/ paths
 
 ### Identify project type
 
-Inspect the working directory (NOT the Cortex repo, NOT `.claude/`, `.cortex/`, or `.git/`).
+Inspect the working directory (NOT `.claude/`, `.git/`).
 
 - `.sln` or `*.csproj` present → .NET
 - `package.json` present → Node/React
@@ -259,7 +258,7 @@ Inspect the working directory (NOT the Cortex repo, NOT `.claude/`, `.cortex/`, 
 Node/React: `*.ts`, `*.tsx`, `*.js`, `*.jsx`
 Generic: `*.sh`, `*.json`
 
-Skip: `node_modules/`, `bin/`, `obj/`, `dist/`, `*.lock`, `*.log`, `*.min.js`, `*.map`, `.cortex/`, `.claude/`, `.git/`
+Skip: `node_modules/`, `bin/`, `obj/`, `dist/`, `*.lock`, `*.log`, `*.min.js`, `*.map`, `.claude/`, `.git/`
 
 In `--deep` mode: also scan `*.json` (non-lock), `*.yaml`, `*.yml`, `*.env`.
 
@@ -351,9 +350,9 @@ Then print the summary box:
 If `--fix` was provided:
 
 For each fixable issue (those whose FIX is deterministic and safe):
-- Hook deployment issues → run `/init-cortex`
+- Missing runtime directories → `mkdir -p <dir>`
+- Stale `~/.claude/hooks/` path in settings.json → apply Edit to correct the path to the project-local form
 - Missing executable permissions → `chmod +x <file>`
-- Stale path references in settings.json → apply Edit to correct the path
 
 If `--dry-run` is also present: print the proposed changes as diffs but apply nothing.
 
@@ -365,6 +364,6 @@ Fixed: <brief description of what was changed>
 Do NOT auto-fix:
 - Code issues in project files (these require human review)
 - Registry corrections that require structural changes
-- Anything that modifies `.cortex/local/`
+- Anything that modifies `.claude/local/`
 
 Do NOT ask the user for permission before fixing. Apply deterministic fixes silently.

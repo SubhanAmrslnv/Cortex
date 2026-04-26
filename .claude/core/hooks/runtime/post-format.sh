@@ -1,18 +1,10 @@
 #!/usr/bin/env bash
-# @version: 2.4.0
+# @version: 2.5.0
 # PostToolUse formatter — pure dispatcher. All extension→scanner mappings live in
-# .cortex/registry/scanners.json. No language-specific logic in this file.
-# Resolves CORTEX_ROOT: env var > project-local .cortex > global ~/.cortex.
+# .claude/registry/scanners.json. No language-specific logic in this file.
 # Payload delivered via stdin by Claude Code.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.claude" ]; then
-    export CORTEX_ROOT="$(pwd)/.claude"
-  else
-    export CORTEX_ROOT="$(pwd)/.claude"
-  fi
-fi
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 [[ -z "$input" ]] && exit 0
