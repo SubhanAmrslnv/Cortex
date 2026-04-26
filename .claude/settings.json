@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/session-start.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/session-start.sh\""
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/prompt-optimizer.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/prompt-optimizer.sh\""
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/pre-guard.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/pre-guard.sh\""
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-format.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-format.sh\""
           }
         ]
       },
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-scan.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-scan.sh\""
           }
         ]
       },
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-code-intel.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-code-intel.sh\""
           }
         ]
       },
@@ -64,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-audit-log.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-audit-log.sh\""
           }
         ]
       }
@@ -74,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/stop-build.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/stop-build.sh\""
           }
         ]
       }
@@ -84,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/permission-request.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/permission-request.sh\""
           }
         ]
       }
@@ -94,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/permission-denied.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/permission-denied.sh\""
           }
         ]
       }
@@ -104,7 +104,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-error-analyzer.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-error-analyzer.sh\""
           }
         ]
       }
@@ -114,7 +114,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/notification.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/notification.sh\""
           }
         ]
       }
@@ -124,7 +124,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/task-tracker.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/task-tracker.sh\""
           }
         ]
       }
@@ -134,7 +134,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/task-tracker.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/task-tracker.sh\""
           }
         ]
       }

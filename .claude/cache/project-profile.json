@@ -1,7 +1,7 @@
 {
-  "fingerprint": "01b49d86c664576a3382cfeda7835b6e",
+  "fingerprint": "97e81ac4fd23c9cae3c44757012fb1a2",
   "project_type": "unknown",
-  "generated_at": "2026-04-23T12:22:57Z",
+  "generated_at": "2026-04-26T10:11:50Z",
   "dependencies": [],
   "entry_points": [],
   "structure": [
@@ -12,9 +12,10 @@
     "./.claude/config",
     "./.claude/core",
     "./.claude/local",
+    "./.claude/logs",
     "./.claude/registry",
+    "./.claude/temp",
     "./.claude/test",
-    "./.claude/worktrees",
     "./.git",
     "./documentation"
   ]
