@@ -92,7 +92,7 @@ WHY: /<name> cannot be invoked — the command runner will exit non-zero
 FIX: create $COMMANDS_DIR/<name>.md with the command implementation
 ```
 
-### CHECK 3 — hooks.json
+### CHECK 3 — hooks.json (registry, source files, versions)
 
 Read `$REGISTRY/hooks.json`.
 
@@ -105,7 +105,7 @@ WHY: hook registry is required for version validation
 FIX: restore hooks.json from the Cortex source repository
 ```
 
-For each entry in hooks.json:
+For each entry in hooks.json, perform all of the following in a single pass (one read per source file):
 
 a. Check `source` and `version` fields exist. If either is absent:
 ```
@@ -125,17 +125,34 @@ WHY: hook cannot fire — Claude Code will invoke a missing script
 FIX: restore <source> from the Cortex repository
 ```
 
-c. Verify the hook sources bootstrap.sh on its first executable line:
-```bash
-source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
-```
-If the hook still contains an inline `if [ -z "$CORTEX_ROOT" ]` block:
+c. Read the source file and simultaneously verify:
+- **Bootstrap usage**: first executable line must be `source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0`. If the hook still has an inline `if [ -z "$CORTEX_ROOT" ]` block:
 ```
 TYPE: WARNING
 TITLE: Hook not using bootstrap: <key>
 DETAILS: <hook-name> has an inline CORTEX_ROOT block instead of sourcing bootstrap.sh
 WHY: bootstrap.sh is the single source of truth for path resolution and validation
 FIX: replace the inline block with: source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
+```
+- **Version tag**: locate `^# @version: X.Y.Z` (line 1 or 2). If absent, treat as `0.0.0` and warn:
+```
+TYPE: WARNING
+TITLE: Hook missing version tag: <hook-name>
+DETAILS: $CORTEX_DIR/<source> has no '# @version: X.Y.Z' line
+WHY: /init-cortex cannot perform version-aware tracking
+FIX: add '# @version: X.Y.Z' on line 2 of <source>
+```
+- **Version match**: compare source `# @version:` against the version in hooks.json:
+  - source > registry: warn that source is newer than registry (run /init-cortex to sync)
+  - source < registry: warn that registry is ahead of source (bump source version tag)
+
+d. Check `stop-build.sh` exists at `$HOOKS_SRC/runtime/stop-build.sh`:
+```
+TYPE: ERROR
+TITLE: stop-build.sh missing
+DETAILS: $HOOKS_SRC/runtime/stop-build.sh does not exist
+WHY: the Stop hook will fail silently — build errors will not be reported after session end
+FIX: restore stop-build.sh from the Cortex source repository
 ```
 
 ### CHECK 4 — scanners.json
@@ -161,47 +178,7 @@ WHY: files with extension <ext> will not be scanned — security issues may go u
 FIX: create the scanner script at $CORTEX_DIR/core/scanners/<path> or remove the mapping from scanners.json
 ```
 
-### CHECK 5 — Hook version validation
-
-For each hook in hooks.json:
-
-a. Read the source file at `$CORTEX_DIR/<source>`. Locate `^# @version:` (line 1 or 2). Extract the version. If absent, treat as `0.0.0`:
-```
-TYPE: WARNING
-TITLE: Hook missing version tag: <hook-name>
-DETAILS: $CORTEX_DIR/<source> has no '# @version: X.Y.Z' line
-WHY: /init-cortex cannot perform version-aware tracking
-FIX: add '# @version: X.Y.Z' on line 2 of <source>
-```
-
-b. Compare the source `# @version:` against the version in hooks.json:
-- source > registry:
-```
-TYPE: WARNING
-TITLE: Hook version not synced in registry: <hook-name>
-DETAILS: source version <src_ver> is newer than registry version <reg_ver>
-WHY: /init-cortex version checks will be inaccurate — the hook may appear current when it isn't
-FIX: update hooks.json version for <hook-name> to <src_ver>
-```
-- source < registry:
-```
-TYPE: WARNING
-TITLE: Registry version ahead of source: <hook-name>
-DETAILS: registry version <reg_ver> is newer than source file version <src_ver>
-WHY: registry may reflect intended version before source was updated
-FIX: bump the # @version: tag in $CORTEX_DIR/<source> to match hooks.json
-```
-
-c. Check `stop-build.sh` exists at `$HOOKS_SRC/runtime/stop-build.sh`:
-```
-TYPE: ERROR
-TITLE: stop-build.sh missing
-DETAILS: $HOOKS_SRC/runtime/stop-build.sh does not exist
-WHY: the Stop hook will fail silently — build errors will not be reported after session end
-FIX: restore stop-build.sh from the Cortex source repository
-```
-
-### CHECK 6 — settings.json wiring
+### CHECK 5 — settings.json wiring
 
 Read `$CORTEX_DIR/settings.json`.
 

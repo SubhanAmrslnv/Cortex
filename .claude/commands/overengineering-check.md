@@ -177,7 +177,7 @@ If UNSAFE: downgrade severity to LOW and add note "Simplification requires cross
 
 ---
 
-## STEP 6 — Generate WHY explanation
+## STEP 6 — Generate WHY and FIX
 
 For each finding, produce one paragraph:
 - State what the pattern is and where it appears (file + construct name)
@@ -185,11 +185,7 @@ For each finding, produce one paragraph:
 - Cite evidence: line count, Grep result count (implementations, callers), property overlap percentage
 - No subjective language ("ugly", "messy", "bad") — only structural and maintainability arguments
 
----
-
-## STEP 7 — Generate FIX instruction
-
-For each finding, provide ONE specific structural instruction:
+Then provide ONE specific structural instruction:
 - Name the exact construct to remove or collapse
 - State what it should be replaced with (inline the logic, remove the layer, merge the files)
 - Do NOT provide alternatives

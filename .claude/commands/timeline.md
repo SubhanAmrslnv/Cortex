@@ -163,7 +163,7 @@ Map state to status:
 
 ---
 
-## STEP 6 — Generate WHY explanation
+## STEP 6 — Generate WHY and FIX
 
 Produce one paragraph tracing the causal chain from early phases to current state:
 - Name the phases in order and what they indicate about the file's trajectory
@@ -171,11 +171,7 @@ Produce one paragraph tracing the causal chain from early phases to current stat
 - Explain what the current state means for maintainability and future changes
 - No vague language — every claim must reference a phase index, signal, or commit count
 
----
-
-## STEP 7 — Generate FIX (DEGRADED only)
-
-If state is `DEGRADED`, provide ONE refactor direction:
+If state is `DEGRADED`, provide ONE refactor direction immediately after the WHY paragraph:
 
 Select the most applicable based on dominant signals:
 

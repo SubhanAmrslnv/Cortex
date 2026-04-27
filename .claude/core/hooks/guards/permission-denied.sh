@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 1.2.0
+# @version: 1.3.0
 # PermissionDenied hook — analyzes a denied command, infers the denial reason,
 # generates a safe alternative, and decides whether a retry is appropriate.
 # Always exits 0; never executes anything.
@@ -16,18 +16,6 @@ reason=""
 safe_cmd=""
 retry=false
 message=""
-
-# ---------------------------------------------------------------------------
-# Helper — apply a sed transform only if the pattern matches
-# ---------------------------------------------------------------------------
-try_transform() {
-  local pattern="$1" replacement="$2"
-  if echo "$cmd" | grep -qE "$pattern"; then
-    safe_cmd=$(echo "$cmd" | sed -E "s|$pattern|$replacement|g")
-    return 0
-  fi
-  return 1
-}
 
 # ---------------------------------------------------------------------------
 # Transformation table — evaluated in priority order

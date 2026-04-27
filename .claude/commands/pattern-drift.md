@@ -155,7 +155,7 @@ Map overall status (worst across all deviations):
 
 ---
 
-## STEP 7 — Generate WHY explanation per deviation
+## STEP 7 — Generate WHY and FIX per deviation
 
 For each deviation, produce one sentence explaining:
 - What the dominant pattern is and how many files follow it
@@ -164,11 +164,7 @@ For each deviation, produce one sentence explaining:
 
 Cite the `example_file` from Step 4 as the reference implementation.
 
----
-
-## STEP 8 — Generate FIX per deviation
-
-For each deviation, provide ONE exact change to align with the dominant pattern:
+Then provide ONE exact change to align with the dominant pattern:
 - Name the specific line or block to change
 - State what it should be changed to (citing the dominant value)
 - Do NOT provide multiple options

@@ -92,7 +92,7 @@ Sort results by `HOTSPOT_SCORE` descending. Take top `N` where N = `--top` value
 
 ---
 
-## STEP 5 — Generate WHY explanation per file
+## STEP 5 — Generate WHY and FIX per hotspot
 
 For each hotspot, produce a concise explanation referencing:
 - Exact change count from git history
@@ -102,19 +102,15 @@ For each hotspot, produce a concise explanation referencing:
 
 No vague statements. Every claim must cite a number from Steps 1–3.
 
----
-
-## STEP 6 — Generate FIX recommendation per file
+Then provide ONE fix recommendation:
 
 **If RISK is HIGH:**
-Give ONE specific structural recommendation:
 - If file is a central registry/config: "Generate this file from source-of-truth data rather than hand-maintaining it"
 - If file is a large monolithic script (>150 lines): "Split into `<name>-core` (engine) and `<name>-rules` (data/config) modules"
 - If file is documentation kept in sync manually: "Generate the volatile sections from registry data; hand-maintain only policy sections"
 - If file is a single point of wiring/adapter: "Add a validation step (e.g., `/doctor` check) that detects drift rather than requiring manual edits"
 
 **If RISK is MEDIUM:**
-Give ONE targeted recommendation:
 - "Add a change-detection test or checksum that fails CI when this file changes without a corresponding registry update"
 - "Extract the <specific section> into a separate file to isolate future changes"
 

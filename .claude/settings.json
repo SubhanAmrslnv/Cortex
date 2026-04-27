@@ -60,6 +60,15 @@
         ]
       },
       {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-contract-sync.sh\""
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit|Bash",
         "hooks": [
           {

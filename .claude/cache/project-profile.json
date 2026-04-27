@@ -1,7 +1,9 @@
 {
-  "fingerprint": "97e81ac4fd23c9cae3c44757012fb1a2",
+  "fingerprint": "6ec7907b5956fb0e7ed95b6eeda64986",
   "project_type": "unknown",
-  "generated_at": "2026-04-26T10:11:50Z",
+  "framework": "",
+  "arch": "",
+  "generated_at": "2026-04-27T06:11:58Z",
   "dependencies": [],
   "entry_points": [],
   "structure": [
@@ -16,6 +18,7 @@
     "./.claude/registry",
     "./.claude/temp",
     "./.claude/test",
+    "./.claude/worktrees",
     "./.git",
     "./documentation"
   ]

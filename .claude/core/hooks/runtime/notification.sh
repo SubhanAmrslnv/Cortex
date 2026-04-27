@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 1.1.0
+# @version: 1.2.0
 # Notification hook — aggregates signals from previous hooks, filters noise,
 # emits only medium/high severity actionable notifications.
 # Reads payload from stdin. Always exits 0.
@@ -36,17 +36,10 @@ add_notification() {
   notif_parts+=("$entry")
 }
 
-# ─── Helper: extract string field safely ─────────────────────────────────────
-jqr() { echo "$input" | jq -r "$1 // empty" 2>/dev/null; }
-jqa() { echo "$input" | jq -c "$1 // []"    2>/dev/null; }
-
 # ─── 1. Security signals ─────────────────────────────────────────────────────
-while IFS= read -r warn; do
-  [[ -z "$warn" ]] && continue
-  file=$(echo "$warn" | jq -r '.file // empty' 2>/dev/null)
-  msg=$(echo "$warn"  | jq -r '.message // empty' 2>/dev/null)
-  [[ -z "$msg" ]] && msg="$warn"
-
+# Single jq call extracts all [file, message] pairs — no per-item jq spawn
+while IFS=$'\t' read -r file msg; do
+  [[ -z "$msg" ]] && continue
   case "$msg" in
     *secret*|*credential*|*api_key*|*private_key*|*password*|*token*)
       add_notification "security" "high" "Possible hardcoded secret detected — review before committing" "$file" ;;
@@ -59,12 +52,12 @@ while IFS= read -r warn; do
     *unsafe*|*exec\(*|*shell_exec*|*eval\(\)*)
       add_notification "security" "high" "Unsafe code execution pattern detected" "$file" ;;
     *)
-      [[ -n "$msg" ]] && add_notification "security" "medium" "$msg" "$file" ;;
+      add_notification "security" "medium" "$msg" "$file" ;;
   esac
-done < <(jqa '.security_warnings[]' | jq -c '.' 2>/dev/null || echo "")
+done < <(echo "$input" | jq -r '.security_warnings[]? | [(.file // ""), (.message // "")] | @tsv' 2>/dev/null)
 
 # Raw scanner WARNING lines
-raw_security=$(jqr '.security_output')
+raw_security=$(echo "$input" | jq -r '.security_output // empty' 2>/dev/null)
 if [[ -n "$raw_security" ]]; then
   while IFS= read -r line; do
     [[ "$line" =~ ^WARNING:\ possible\ hardcoded ]] && \
@@ -75,57 +68,39 @@ if [[ -n "$raw_security" ]]; then
 fi
 
 # ─── 2. Build signals ────────────────────────────────────────────────────────
-build_status=$(jqr '.build_status')
-build_error=$(jqr  '.build_error // .build_stderr')
+build_status=$(echo "$input" | jq -r '.build_status // empty'          2>/dev/null)
+build_error=$(echo "$input"  | jq -r '.build_error // .build_stderr // empty' 2>/dev/null)
 
 if [[ "$build_status" == "failed" || "$build_status" == "error" ]]; then
   msg="Build failed"
-  if echo "$build_error" | grep -qiE 'cannot find module|unresolved|missing'; then
+  if grep -qiE 'cannot find module|unresolved|missing' <<< "$build_error"; then
     msg="Build failed — missing dependency"
-  elif echo "$build_error" | grep -qiE 'syntaxerror|unexpected token|error cs[0-9]+|error ts[0-9]+'; then
+  elif grep -qiE 'syntaxerror|unexpected token|error cs[0-9]+|error ts[0-9]+' <<< "$build_error"; then
     msg="Build failed — syntax or type error"
-  elif echo "$build_error" | grep -qiE 'permission denied'; then
+  elif grep -qiE 'permission denied' <<< "$build_error"; then
     msg="Build failed — permission denied"
   fi
   add_notification "build" "high" "$msg" ""
 fi
 
-test_status=$(jqr '.test_status')
-test_failed=$(jqr '.tests_failed')
+test_status=$(echo "$input"  | jq -r '.test_status // empty'  2>/dev/null)
+test_failed=$(echo "$input"  | jq -r '.tests_failed // empty' 2>/dev/null)
 if [[ "$test_status" == "failed" || ( -n "$test_failed" && "$test_failed" -gt 0 2>/dev/null ) ]]; then
   add_notification "build" "high" "${test_failed:-some} test(s) failed — review test output" ""
 fi
 
 # ─── 3. Code quality signals ─────────────────────────────────────────────────
-complex_count=0
-dup_count=0
-struct_count=0
-complex_files=""
-dup_files=""
-struct_files=""
+# Single jq call extracts all [path, issue-type] pairs — replaces nested while+jq loops
+complex_count=0; dup_count=0; struct_count=0
+complex_files=""; dup_files=""; struct_files=""
 
-while IFS= read -r file_entry; do
-  [[ -z "$file_entry" ]] && continue
-  fpath=$(echo "$file_entry" | jq -r '.path // empty' 2>/dev/null)
-
-  while IFS= read -r issue; do
-    itype=$(echo "$issue" | jq -r '.type // empty' 2>/dev/null)
-    case "$itype" in
-      complexity)
-        (( complex_count++ ))
-        complex_files="${complex_files} ${fpath}"
-        ;;
-      duplication)
-        (( dup_count++ ))
-        dup_files="${dup_files} ${fpath}"
-        ;;
-      structure)
-        (( struct_count++ ))
-        struct_files="${struct_files} ${fpath}"
-        ;;
-    esac
-  done < <(echo "$file_entry" | jq -c '.issues[]' 2>/dev/null || echo "")
-done < <(jqa '.code_intel.files[]' | jq -c '.' 2>/dev/null || echo "")
+while IFS=$'\t' read -r fpath itype; do
+  case "$itype" in
+    complexity)  (( complex_count++ )); complex_files+=" $fpath" ;;
+    duplication) (( dup_count++ ));     dup_files+=" $fpath"     ;;
+    structure)   (( struct_count++ ));  struct_files+=" $fpath"  ;;
+  esac
+done < <(echo "$input" | jq -r '.code_intel.files[]? | .path as $p | .issues[]? | [$p, .type] | @tsv' 2>/dev/null)
 
 if [[ $complex_count -gt 0 ]]; then
   file_count=$(echo "$complex_files" | tr ' ' '\n' | grep -cv '^$' 2>/dev/null || echo 1)
@@ -148,8 +123,8 @@ if [[ $struct_count -gt 0 ]]; then
 fi
 
 # ─── 4. Performance signals ──────────────────────────────────────────────────
-perf_delta=$(jqr '.performance.delta_percent')
-perf_metric=$(jqr '.performance.metric // "response time"')
+perf_delta=$(echo "$input" | jq -r '.performance.delta_percent // empty'       2>/dev/null)
+perf_metric=$(echo "$input" | jq -r '.performance.metric // "response time"'   2>/dev/null)
 
 if [[ -n "$perf_delta" && "$perf_delta" =~ ^[0-9] ]]; then
   delta_int=${perf_delta%.*}   # integer part only (avoids bc dependency)
@@ -161,10 +136,10 @@ if [[ -n "$perf_delta" && "$perf_delta" =~ ^[0-9] ]]; then
 fi
 
 # ─── 5. Error analyzer signals ───────────────────────────────────────────────
-err_type=$(jqr    '.last_error.type')
-err_msg=$(jqr     '.last_error.message')
-err_file=$(jqr    '.last_error.file')
-err_suggest=$(jqr '.last_error.suggestion')
+err_type=$(echo "$input"    | jq -r '.last_error.type       // empty' 2>/dev/null)
+err_msg=$(echo "$input"     | jq -r '.last_error.message    // empty' 2>/dev/null)
+err_file=$(echo "$input"    | jq -r '.last_error.file       // empty' 2>/dev/null)
+err_suggest=$(echo "$input" | jq -r '.last_error.suggestion // empty' 2>/dev/null)
 
 if [[ -n "$err_type" && "$err_type" != "unknown" ]]; then
   case "$err_type" in

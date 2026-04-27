@@ -140,9 +140,11 @@ Also check:
 
 ---
 
-## STEP 7 — TEST PRESENCE CHECK
+## STEP 7 — TEST & MOCK DATA CHECK
 
-Skip if `--skip-tests` is set: record `TESTS: SKIPPED`.
+Skip if `--skip-tests` is set: record `TESTS: SKIPPED` and `MOCKS: SKIPPED`.
+
+### 7a — Test Presence
 
 For each non-test file in `CHANGED_FILES` (exclude paths containing `test`, `spec`, `__tests__`):
 1. Derive the expected test file name (e.g., `foo.ts` → `foo.test.ts`, `foo.spec.ts`; `FooService.cs` → `FooServiceTests.cs`)
@@ -154,11 +156,33 @@ Aggregate:
 
 Note: MISSING is a warning, not a blocker. Record for output but do not fail the PR on this alone.
 
+### 7b — Frontend Mock/Example Data Check
+
+For each file in `CHANGED_FILES` matching a contract pattern:
+- Filename contains: `Dto`, `Request`, `Response`, `Command`, `Schema`, `Model`, `Entity`, `Contract`, `Payload`, `ViewModel`
+- OR file content contains controller/router decorators: `[ApiController]`, `@RestController`, `@Controller`, `app.get/post/put/patch/delete(`, `router.get/post/...(`
+
+For each matched contract file:
+1. Derive the entity base name by stripping the contract suffix (e.g., `CreateUserDto` → `CreateUser`, `UserResponse` → `User`)
+2. Use Glob and Grep to search for mock/fixture/example files referencing this base name:
+   - Files matching `*.mock.*`, `*.fixture.*`, `*.example.*`, `*.stub.*`, `*.stories.*`
+   - Directories named `mocks/`, `__mocks__/`, `fixtures/`, `__fixtures__/`, `examples/`
+3. If no mock file references the contract name: record as `MOCKS: MISSING` — list uncovered contracts
+
+Guard: only run this check if the project already contains at least one mock/fixture/example file — to avoid false alerts in projects with no frontend mock layer. If no such files exist: record `MOCKS: N/A`.
+
+Aggregate:
+- No contract files changed, or all have mock data → `MOCKS: PRESENT`
+- Project has mock files but a contract has no corresponding mock → `MOCKS: MISSING`
+- Project has no mock files at all → `MOCKS: N/A`
+
+Note: MISSING is a warning, not a blocker.
+
 ---
 
-## STEP 8 — Determine PR outcome
+## STEP 8 — Determine outcome, generate WHY and FIX, produce output
 
-Apply this decision table (first matching row wins):
+### Outcome decision table (first matching row wins)
 
 | Condition | Outcome |
 |---|---|
@@ -167,37 +191,12 @@ Apply this decision table (first matching row wins):
 | `COMMITS: FAIL` (Claude attribution found) | `REJECTED` |
 | `ARCHITECTURE: FAIL` | `REJECTED` |
 | `BUILD: SKIPPED` + `SECURITY: FAIL` | `REJECTED` |
-| `ARCHITECTURE: WARN` or `FORMAT: WARN` or `COMMITS: WARN` or `TESTS: MISSING` | `WARNING` |
+| `ARCHITECTURE: WARN` or `FORMAT: WARN` or `COMMITS: WARN` or `TESTS: MISSING` or `MOCKS: MISSING` | `WARNING` |
 | All checks PASS or SKIPPED | `ACCEPTED` |
 
-Map outcome to status:
-- `REJECTED` → `[FAIL]`
-- `WARNING` → `[WARN]`
-- `ACCEPTED` → `[PASS]`
+Map: `REJECTED` → `[FAIL]` · `WARNING` → `[WARN]` · `ACCEPTED` → `[PASS]`
 
----
-
-## STEP 9 — Generate WHY explanation
-
-Produce one paragraph per FAIL or WARN check explaining:
-- What was found (specific file, line, or message)
-- Why it blocks or warns
-- No vague statements — every claim must cite something found in Steps 2–7
-
----
-
-## STEP 10 — Generate FIX steps
-
-For each FAIL check, provide exact shell commands or specific file edits to resolve it.
-For each WARN check, provide one actionable step.
-
-Order: FAIL fixes first, then WARN fixes.
-
-Do NOT provide optional alternatives — one fix per issue.
-
----
-
-## OUTPUT
+### Print output
 
 ```
 [PASS | WARN | FAIL]
@@ -216,6 +215,7 @@ CHECKS:
   ARCHITECTURE: ✔ PASS | ⚠ WARN   | ❌ FAIL
   COMMITS:      ✔ PASS | ⚠ WARN   | ❌ FAIL
   TESTS:        ✔ PRESENT | ⚠ MISSING | ⚠ SKIPPED
+  MOCKS:        ✔ PRESENT | ⚠ MISSING | ⚠ N/A     | ⚠ SKIPPED
 ```
 
 If any check is WARN or FAIL, print its details block:
@@ -226,7 +226,11 @@ If any check is WARN or FAIL, print its details block:
     - ...
 ```
 
-Then:
+### WHY and FIX
+
+For each FAIL or WARN check, produce one WHY paragraph (what was found, why it blocks/warns — cite specific file, line, or message from Steps 2–7, no vague statements).
+
+For each FAIL check provide an exact shell command or file edit to resolve it. For each WARN check provide one actionable step. FAILs first, then WARNs. ONE fix per issue — no alternatives.
 
 ```
 WHY:
@@ -246,3 +250,6 @@ FIX:
 - Never output multiple FIX options for the same issue
 - Never make optimistic assumptions about test coverage — check file existence
 - Never flag TESTS: MISSING for files that are themselves test files
+- Never flag MOCKS: MISSING unless the project already has at least one mock/fixture/example file
+- Never flag MOCKS: MISSING for files that are themselves mock or fixture files
+- Never skip the contract pattern check in 7b — always evaluate every changed file against the contract pattern list

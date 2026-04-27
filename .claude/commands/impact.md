@@ -105,7 +105,9 @@ Save all traces as: `DEPENDENCY_MAP[file] = { consumers: [], entry_points: [], d
 
 ---
 
-## STEP 4 — Calculate impact metrics
+## STEP 4 — Calculate impact metrics, assign risk level, and generate WHY and FIX
+
+### Metrics
 
 Aggregate across all `DEPENDENCY_MAP` entries:
 
@@ -115,9 +117,7 @@ Aggregate across all `DEPENDENCY_MAP` entries:
 - **Layers touched**: set of unique types present in changed files + their consumers (e.g., `{DTO, Service, Controller}` = 3 layers)
 - **DB tables affected**: unique table/entity names from Repository and Migration traces
 
----
-
-## STEP 5 — Assign risk level
+### Risk level
 
 Assign a single `RISK_LEVEL` using this decision table (first matching row wins):
 
@@ -134,40 +134,19 @@ Assign a single `RISK_LEVEL` using this decision table (first matching row wins)
 | All changes isolated to 1 layer with ≤2 consumers | `LOW` |
 | No consumers found for any changed file | `LOW` |
 
-Map risk to status:
-- `HIGH` → `[FAIL]`
-- `MEDIUM` → `[WARN]`
-- `LOW` → `[PASS]`
+Map risk to status: `HIGH` → `[FAIL]` · `MEDIUM` → `[WARN]` · `LOW` → `[PASS]`
 
----
+### WHY explanation
 
-## STEP 6 — Generate WHY explanation
+Produce a single technical paragraph explaining why the change carries this risk level. Reference specific files changed, specific consumers found, which layers are crossed, and which endpoints or DB tables are affected. No vague statements — every claim must trace back to a file or line found in Steps 2–3.
 
-Produce a single technical paragraph explaining why the change carries this risk level. Reference:
-- Specific files changed
-- Specific consumers found
-- Which layers are crossed
-- Which endpoints or DB tables are affected
+### FIX recommendation
 
-No vague statements. Every claim must trace back to a file or line found in Steps 2–4.
+**If `RISK_LEVEL` is `HIGH`**: identify the specific coupling that elevated the risk and give ONE actionable recommendation (extract a service, split the commit, add an interface layer — pick the most applicable).
 
----
+**If `RISK_LEVEL` is `MEDIUM`**: "Add or update integration tests covering the `<endpoint>` endpoint before merging — this change propagates through `<ServiceName>` to `<ControllerName>`"
 
-## STEP 7 — Generate FIX recommendation
-
-**If `RISK_LEVEL` is `HIGH`**:
-Identify the specific coupling that elevated the risk and give ONE actionable recommendation:
-
-Examples (pick the most applicable):
-- "Extract the changed logic in `<file>` into a new `<Name>Service` to isolate the `<RepositoryName>` dependency from `<n>` callers"
-- "Split this commit — the DTO change in `<file>` and the schema migration in `<file>` touch different risk domains and should be reviewed independently"
-- "Add an interface layer between `<RepositoryName>` and its `<n>` Service consumers to reduce the blast radius of future repository changes"
-
-**If `RISK_LEVEL` is `MEDIUM`**:
-- "Add or update integration tests covering the `<endpoint>` endpoint before merging — this change propagates through `<ServiceName>` to `<ControllerName>`"
-
-**If `RISK_LEVEL` is `LOW`**:
-- "No structural changes recommended — impact is isolated."
+**If `RISK_LEVEL` is `LOW`**: "No structural changes recommended — impact is isolated."
 
 Do NOT provide multiple options. ONE fix only.
 
@@ -225,6 +204,6 @@ FIX:
 
 - Never state a dependency without a Grep result confirming it
 - Never claim an endpoint is affected without tracing the call chain
-- Never assign HIGH risk based on file count alone — use the decision table
+- Never assign HIGH risk based on file count alone — use the risk decision table
 - Never output multiple FIX options
 - Never include files outside `CHANGED_FILES` in the Files Changed count

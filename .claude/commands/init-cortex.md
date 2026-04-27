@@ -74,7 +74,7 @@ FIX: restore the directory from the Cortex source repository
 
 ---
 
-## STEP 3 — Registry version validation
+## STEP 3 — Registry version validation and hook consistency
 
 Read `$CORTEX_ROOT/registry/hooks.json`.
 
@@ -90,20 +90,53 @@ FIX: restore hooks.json from the Cortex source repository
 ```
 Stop.
 
-For each entry (hook name + `source` path + `version`):
+For each entry (hook name + `source` path + `version`), perform all of the following in a single pass (one read per source file):
 
-a. Resolve source: `$CORTEX_ROOT/<source>`
-b. Extract source version from `# @version: X.Y.Z` on line 1 or 2. If absent, treat as `0.0.0`.
-c. Compare source version against the version declared in hooks.json:
+a. Resolve source: `$CORTEX_ROOT/<source>`. If the file does not exist on disk, record:
+```
+TYPE: ERROR
+TITLE: Hook source file missing: <hook-name>
+DETAILS: $CORTEX_ROOT/<source> does not exist on disk
+WHY: hook cannot fire — Claude Code will invoke a missing script
+FIX: restore <source> from the Cortex source repository
+```
+Skip remaining checks for this entry.
 
-**`--force` mode**: always report as UPDATED regardless.
+b. Read the source file and simultaneously verify:
 
-**Normal mode**:
-- source version > registry version → WARN (source was updated but registry not synced)
-- source version == registry version → OK
-- source version < registry version → WARN (registry ahead of source — possible edit without version bump)
+- **Version tag**: locate `# @version: X.Y.Z` on line 1 or 2. If absent, treat as `0.0.0` and record:
+```
+TYPE: WARNING
+TITLE: Hook missing version tag: <hook-name>
+DETAILS: $CORTEX_ROOT/<source> has no '# @version: X.Y.Z' line
+WHY: /init-cortex cannot perform version-aware tracking
+FIX: add '# @version: X.Y.Z' on line 2 of <source>
+```
 
-Record each hook as: `OK` | `WARNING`
+- **Version match**: compare source `# @version:` against the version in hooks.json:
+  - In `--force` mode: always report as UPDATED regardless.
+  - source version > registry version → record WARNING (source updated but registry not synced; run /init-cortex to sync)
+  - source version == registry version → OK
+  - source version < registry version → record WARNING (registry ahead of source — bump source version tag)
+
+```
+TYPE: WARNING
+TITLE: Registry version mismatch: <hook-name>
+DETAILS: hooks.json declares <registry_ver> but source file contains <source_ver>
+WHY: version tracking is inaccurate — /doctor version checks will be unreliable
+FIX: update the version field for <hook-name> in hooks.json to match the source file
+```
+
+- **Bootstrap usage**: first executable line must be `source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0`. If the hook still has an inline `if [ -z "$CORTEX_ROOT" ]` block:
+```
+TYPE: WARNING
+TITLE: Hook not using bootstrap: <hook-name>
+DETAILS: <hook-name> has an inline CORTEX_ROOT resolution block instead of sourcing bootstrap.sh
+WHY: bootstrap.sh is the single source of truth — inline blocks will diverge
+FIX: replace the inline block with: source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
+```
+
+Record each hook as: `OK` | `WARNING` | `ERROR`
 
 Since hooks run directly from `$CORTEX_ROOT/core/hooks/` there is no deployment step. The registry is used only for version tracking and `/doctor` validation.
 
@@ -162,35 +195,6 @@ Record each as `OK` or `WARNING (missing)`.
 
 ---
 
-## STEP 7 — Validate hook registry consistency
-
-For each hook in hooks.json, verify the version in hooks.json matches the `# @version:` tag in the source file.
-
-If mismatched:
-```
-TYPE: WARNING
-TITLE: Registry version mismatch: <hook-name>
-DETAILS: hooks.json declares <registry_ver> but source file contains <source_ver>
-WHY: version tracking is inaccurate — /doctor version checks will be unreliable
-FIX: update the version field for <hook-name> in hooks.json to match the source file
-```
-
-Also verify each hook sources bootstrap.sh, not an inline CORTEX_ROOT block:
-```bash
-source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
-```
-
-If a hook still has the old inline `if [ -z "$CORTEX_ROOT" ]` block:
-```
-TYPE: WARNING
-TITLE: Hook not using bootstrap: <hook-name>
-DETAILS: <hook-name> has an inline CORTEX_ROOT resolution block instead of sourcing bootstrap.sh
-WHY: bootstrap.sh is the single source of truth — inline blocks will diverge
-FIX: replace the inline block with: source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
-```
-
----
-
 ## OUTPUT
 
 Print the overall status (`[PASS]`, `[WARN]`, or `[FAIL]`) based on highest severity found.
@@ -211,7 +215,7 @@ Generated: <timestamp>
   ...
 
 [HOOKS]
-  <hook-name>    OK | WARNING    source: <ver> registry: <ver>
+  <hook-name>    OK | WARNING | ERROR    source: <ver> registry: <ver>    bootstrap: OK | WARN
   ...
 
 [SETTINGS]
@@ -224,10 +228,6 @@ Generated: <timestamp>
 
 [SCANNERS]
   <ext>/<scanner>    OK | WARNING
-  ...
-
-[REGISTRY CONSISTENCY]
-  <hook-name>    OK | WARNING <detail>
   ...
 
 STATUS: PASS | WARN | FAIL

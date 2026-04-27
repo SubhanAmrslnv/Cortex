@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-# @version: 3.0.0
-# UserPromptSubmit structured prompt engine.
-# Detects intent → scores files → structural summary + focused snippet.
-# Enhancements v3: structural extraction, basename dedup, git priority preload,
-# intent-based radius, hard context caps (max_files=2, max_total_lines=60),
-# noise path filtering, static guidance blocks, slim profile consumption,
-# keyword alias expansion, intent-layer scoring.
-# --y suffix: strip flag, inject GLOBAL ANSWER POLICY (YES-default).
+# @version: 3.2.0
+# UserPromptSubmit structured prompt engine — light/heavy mode.
+# Default: light mode (fast, minimal context, no guidance blocks).
+# Heavy mode: activates on explicit investigation/debug keywords only.
 
 source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
@@ -23,44 +19,79 @@ prompt=$(echo "$input" | jq -r '.prompt // empty' 2>/dev/null)
 yes_mode=0
 if [[ "$prompt" =~ (^|[[:space:]])--y([[:space:]]|$) || "$prompt" == *" --y" || "$prompt" == "--y" ]]; then
   yes_mode=1
-  prompt=$(echo "$prompt" | sed 's/[[:space:]]*--y[[:space:]]*$//' | sed 's/[[:space:]]*--y[[:space:]]/ /g' | xargs)
+  prompt=$(sed -e 's/[[:space:]]*--y[[:space:]]*$//' -e 's/[[:space:]]*--y[[:space:]]/ /g' <<< "$prompt" | xargs)
 fi
 
 # ── Intent detection ──────────────────────────────────────────────────────────
 prompt_lower=$(echo "$prompt" | tr '[:upper:]' '[:lower:]')
 intent="question"
 
-if echo "$prompt_lower" | grep -qE '\b(fix|bug|error|issue|broken|crash|fail|exception|traceback|stacktrace|undefined|null)\b'; then
+if grep -qE '\b(fix|bug|error|issue|broken|crash|fail|exception|traceback|stacktrace|undefined|null)\b' <<< "$prompt_lower"; then
   intent="bug_fix"
-elif echo "$prompt_lower" | grep -qE '\b(add|implement|create|build|develop|new feature|integrate|write)\b'; then
+elif grep -qE '\b(add|implement|create|build|develop|new feature|integrate|write)\b' <<< "$prompt_lower"; then
   intent="feature_request"
-elif echo "$prompt_lower" | grep -qE '\b(refactor|clean up|improve|optimize|simplify|restructure|reorganize|extract)\b'; then
+elif grep -qE '\b(refactor|clean up|improve|optimize|simplify|restructure|reorganize|extract)\b' <<< "$prompt_lower"; then
   intent="refactor"
 fi
 
-# ── Static guidance blocks (predefined constants, never rebuilt at runtime) ───
-readonly _BUG_GUIDANCE="root-cause-first: trace execution path to fault site; apply minimal surgical fix; preserve all existing behavior; check null dereferences, off-by-ones, type mismatches"
-readonly _FEAT_GUIDANCE="contract-first: define interface/signature before implementation; follow existing patterns; minimal surface area; validate inputs at boundary; handle error paths"
-readonly _REFACTOR_GUIDANCE="behavior-preservation: change structure only, never semantics; extract one concern per step; verify signature compatibility; no feature changes during refactor"
+# ── Mode detection ────────────────────────────────────────────────────────────
+# Heavy mode: explicit investigation/debug keywords. Light mode: everything else.
+# Heavy triggers: debug, investigate, analyze deeply, root cause, trace issue,
+#                 full analysis, deep dive.
+analysis_mode="light"
+if grep -qE '\b(debug|investigate)\b|(analyze deeply|root cause|trace issue|full analysis|deep dive)' <<< "$prompt_lower"; then
+  analysis_mode="heavy"
+fi
 
-case "$intent" in
-  bug_fix)         guidance="$_BUG_GUIDANCE" ;;
-  feature_request) guidance="$_FEAT_GUIDANCE" ;;
-  refactor)        guidance="$_REFACTOR_GUIDANCE" ;;
-  *)               guidance="" ;;
-esac
+# ── Context caps — differ by mode ─────────────────────────────────────────────
+if [[ "$analysis_mode" == "heavy" ]]; then
+  # Heavy: reduced from v3.0.0 — still deeper than light but no longer exhaustive
+  case "$intent" in
+    bug_fix)         snippet_radius=8; max_lines_per_file=20 ;;
+    feature_request) snippet_radius=6; max_lines_per_file=16 ;;
+    refactor)        snippet_radius=5; max_lines_per_file=14 ;;
+    *)               snippet_radius=4; max_lines_per_file=12 ;;
+  esac
+  MAX_FILES=2
+  MAX_TOTAL_LINES=45
+else
+  # Light: reduced caps — one file, tight radius, low line budget
+  case "$intent" in
+    bug_fix)         snippet_radius=6; max_lines_per_file=15 ;;
+    feature_request) snippet_radius=6; max_lines_per_file=15 ;;
+    refactor)        snippet_radius=5; max_lines_per_file=12 ;;
+    *)               snippet_radius=4; max_lines_per_file=10 ;;
+  esac
+  MAX_FILES=1
+  MAX_TOTAL_LINES=30
+fi
 
-# ── Intent-based context caps (deterministic hard limits) ─────────────────────
-case "$intent" in
-  bug_fix)         snippet_radius=12; max_lines_per_file=30 ;;
-  feature_request) snippet_radius=8;  max_lines_per_file=24 ;;
-  refactor)        snippet_radius=6;  max_lines_per_file=20 ;;
-  *)               snippet_radius=5;  max_lines_per_file=20 ;;
-esac
-readonly MAX_FILES=2
-readonly MAX_TOTAL_LINES=60
+# ── Static guidance blocks (heavy mode only — light skips to reduce tokens) ───
+guidance=""
+if [[ "$analysis_mode" == "heavy" ]]; then
+  case "$intent" in
+    bug_fix)
+      guidance="root-cause-first: trace execution path to fault site; apply minimal surgical fix; preserve all existing behavior; check null dereferences, off-by-ones, type mismatches" ;;
+    feature_request)
+      guidance="contract-first: define interface/signature before implementation; follow existing patterns; minimal surface area; validate inputs at boundary; handle error paths" ;;
+    refactor)
+      guidance="behavior-preservation: change structure only, never semantics; extract one concern per step; verify signature compatibility; no feature changes during refactor" ;;
+  esac
+fi
 
-# ── Keyword alias expansion dictionary (static, O(n) expansion) ──────────────
+# ── Test & mock guidance injection ───────────────────────────────────────────
+# Injected for feature_request targeting backend/API/contract layers regardless
+# of light/heavy mode — tests and mock data are mandatory, not optional.
+readonly _TEST_MOCK_GUIDANCE="test-and-mock: include unit+integration tests for all service/repository/controller changes; generate frontend mock/example data for DTO/schema/API contract changes; example data must match actual field types and constraints; never skip tests; never leave empty test stubs"
+
+if [[ "$intent" == "feature_request" ]] && \
+   grep -qE '\b(api|endpoint|dto|service|repository|controller|schema|contract|model|entity|request|response|command|query|test|mock|fixture)\b' <<< "$prompt_lower"; then
+  [[ -n "$guidance" ]] \
+    && guidance="${guidance}; ${_TEST_MOCK_GUIDANCE}" \
+    || guidance="$_TEST_MOCK_GUIDANCE"
+fi
+
+# ── Keyword alias expansion dictionary ────────────────────────────────────────
 declare -A _ALIASES=(
   ["auth"]="login authenticate signin jwt token"
   ["user"]="account profile customer member"
@@ -77,6 +108,10 @@ declare -A _ALIASES=(
   ["log"]="audit trace event monitor"
   ["test"]="spec unit integration mock"
   ["deploy"]="release build publish pipeline"
+  ["dto"]="request response contract schema payload"
+  ["mock"]="fixture example stub seed factory"
+  ["contract"]="dto interface schema api endpoint"
+  ["schema"]="model entity struct record type"
 )
 
 # ── Extract keywords from prompt ──────────────────────────────────────────────
@@ -88,7 +123,6 @@ mapfile -t _raw_kw < <(
   | sort -u | head -8
 )
 
-# Expand with aliases (dedup via associative array, O(n))
 declare -A _seen_kw
 keywords=()
 for _kw in "${_raw_kw[@]}"; do
@@ -105,7 +139,7 @@ done
 
 [[ ${#keywords[@]} -eq 0 ]] && exit 0
 
-# ── Scored command routing (bash string ops, no subprocess per keyword) ───────
+# ── Scored command routing ────────────────────────────────────────────────────
 command_hint=""
 declare -A _cmd_scores
 for _cp in \
@@ -134,7 +168,7 @@ for _c in "${!_cmd_scores[@]}"; do
 done
 [[ $_best_score -ge 2 ]] && command_hint="/$_best_cmd"
 
-# ── Load project profile — slim fields only (project_type, framework, arch) ──
+# ── Load project profile — slim fields only ───────────────────────────────────
 PROFILE="$CORTEX_CACHE/project-profile.json"
 project_type="unknown"; framework=""; arch=""
 if [[ -f "$PROFILE" ]] && jq empty "$PROFILE" 2>/dev/null; then
@@ -143,18 +177,18 @@ if [[ -f "$PROFILE" ]] && jq empty "$PROFILE" 2>/dev/null; then
   arch=$(jq         -r '.arch         // empty'     "$PROFILE" 2>/dev/null)
 fi
 
-# ── Git priority preload (single invocation outside scoring loops) ────────────
+# ── Git priority preload ──────────────────────────────────────────────────────
 declare -A _git_changed
 while IFS= read -r _gf; do
   [[ -n "$_gf" ]] && _git_changed["$_gf"]=1
 done < <({ git diff --name-only 2>/dev/null; git diff --cached --name-only 2>/dev/null; } | sort -u)
 
-# ── Noise path detection: does prompt explicitly target noisy dirs? ────────────
+# ── Noise path detection ──────────────────────────────────────────────────────
 _targets_noise=0
-echo "$prompt_lower" | grep -qE '\b(test|spec|migration|generated|generate|fixture)\b' \
+grep -qE '\b(test|spec|migration|generated|generate|fixture)\b' <<< "$prompt_lower" \
   && _targets_noise=1
 
-# ── File discovery: single find pass ─────────────────────────────────────────
+# ── File discovery ────────────────────────────────────────────────────────────
 declare -a _fnames
 case "$project_type" in
   dotnet) _fnames=("-name" "*.cs") ;;
@@ -180,7 +214,7 @@ mapfile -t all_files < <(
 
 [[ ${#all_files[@]} -eq 0 ]] && exit 0
 
-# ── Noise path filtering (post-discovery, O(n)) ───────────────────────────────
+# ── Noise path filtering ──────────────────────────────────────────────────────
 if [[ $_targets_noise -eq 0 ]]; then
   _clean=()
   for _f in "${all_files[@]}"; do
@@ -191,7 +225,7 @@ if [[ $_targets_noise -eq 0 ]]; then
   [[ ${#all_files[@]} -eq 0 ]] && exit 0
 fi
 
-# ── Intent-based layer boost pattern ─────────────────────────────────────────
+# ── Intent-based layer boost ──────────────────────────────────────────────────
 case "$intent" in
   bug_fix)         _layer_pat="Service|Controller|Repository|Handler" ;;
   feature_request) _layer_pat="Controller|Dto|Command|Handler|Request|Response" ;;
@@ -199,10 +233,10 @@ case "$intent" in
   *)               _layer_pat="" ;;
 esac
 
-# ── Score files by relevance ──────────────────────────────────────────────────
+# ── File scoring ──────────────────────────────────────────────────────────────
 declare -A file_scores
 
-# Keyword × filename (+3; bash string ops, no subprocess spawning)
+# Keyword × filename (+3)
 for _kw in "${keywords[@]}"; do
   for _f in "${all_files[@]}"; do
     _fn=$(basename "${_f%.*}" | tr '[:upper:]' '[:lower:]')
@@ -218,14 +252,14 @@ while IFS= read -r _ref; do
     _fb=$(basename "$_f" | tr '[:upper:]' '[:lower:]')
     [[ "$_fb" == "$_rb" ]] && file_scores["$_f"]=$(( ${file_scores["$_f"]:-0} + 5 ))
   done
-done < <(echo "$prompt" | grep -oE '[A-Za-z0-9_/.-]+\.(cs|ts|tsx|js|jsx|py|go|rs|java)(:[0-9]+)?' 2>/dev/null | head -5)
+done < <(grep -oE '[A-Za-z0-9_/.-]+\.(cs|ts|tsx|js|jsx|py|go|rs|java)(:[0-9]+)?' <<< "$prompt" 2>/dev/null | head -5)
 
-# Git-changed boost (+4; uses preloaded map, no subprocess)
+# Git-changed boost (+4)
 for _f in "${all_files[@]}"; do
   [[ -n "${_git_changed[${_f#./}]:-}" ]] && file_scores["$_f"]=$(( ${file_scores["$_f"]:-0} + 4 ))
 done
 
-# Layer-based boost (+2; basename ERE match against intent pattern)
+# Layer-based boost (+2)
 if [[ -n "$_layer_pat" ]]; then
   for _f in "${all_files[@]}"; do
     _fn=$(basename "${_f%.*}")
@@ -246,6 +280,7 @@ for _f in "${top_files[@]}"; do
 done
 top_files=("${_keep[@]}")
 
+# ── Fallback: no relevant files found ────────────────────────────────────────
 [[ ${#top_files[@]} -eq 0 ]] && {
   _ctx="[CORTEX]
 intent: ${intent}
@@ -262,12 +297,12 @@ Default all binary decisions to YES. Skip confirmation prompts for non-destructi
   exit 0
 }
 
-# ── Same-basename deduplication (IFoo + Foo → prefer Foo, skip IFoo) ─────────
+# ── Same-basename deduplication (IFoo + Foo → prefer Foo) ────────────────────
 _skip_iface=()
 for _f in "${top_files[@]}"; do
   _base=$(basename "${_f%.*}")
-  [[ "$_base" =~ ^I[A-Z] ]] || continue       # only interface-named candidates
-  _impl="${_base#I}"                            # IUserService → UserService
+  [[ "$_base" =~ ^I[A-Z] ]] || continue
+  _impl="${_base#I}"
   for _f2 in "${top_files[@]}"; do
     [[ "$(basename "${_f2%.*}")" == "$_impl" ]] && { _skip_iface+=("$_f"); break; }
   done
@@ -280,12 +315,12 @@ for _f in "${top_files[@]}"; do
 done
 top_files=("${_deduped[@]}")
 
-# ── Structural extraction (single-pass per file; O(n) grepping, no recursion) ─
+# ── Structural extraction (heavy mode only) ───────────────────────────────────
+# Light mode skips entirely — snippets are short enough to be self-describing.
 _extract_structure() {
   local _f="$1" _ext _types="" _methods="" _deps="" _out=""
   _ext="${_f##*.}"
 
-  # Note: bash $(...) strips trailing newlines, so _out uses explicit $'\n' separators
   case "$_ext" in
     cs)
       _types=$(grep -oE '\b(class|interface|enum|struct)[[:space:]]+[A-Za-z_][A-Za-z0-9_<>]*' "$_f" 2>/dev/null \
@@ -353,9 +388,11 @@ for _f in "${top_files[@]}"; do
   (( _fsize > 102400 )) && continue
 
   _fname=$(basename "$_f")
-  _struct=$(_extract_structure "$_f")
 
-  # Single combined-keyword grep to find best context line
+  # Structural summary: heavy mode only — light snippets are short enough to be self-describing
+  _struct=""
+  [[ "$analysis_mode" == "heavy" ]] && _struct=$(_extract_structure "$_f")
+
   _best=1
   if [[ -n "$_kw_pattern" ]]; then
     _found=$(grep -niE "$_kw_pattern" "$_f" 2>/dev/null | head -1 | cut -d: -f1)
@@ -365,7 +402,6 @@ for _f in "${top_files[@]}"; do
   _start=$(( _best - snippet_radius )); (( _start < 1 )) && _start=1
   _end=$(( _best + snippet_radius ))
 
-  # Enforce per-file cap and global total cap
   _allowed=$(( max_lines_per_file < MAX_TOTAL_LINES - _total_lines \
                ? max_lines_per_file : MAX_TOTAL_LINES - _total_lines ))
   (( (_end - _start + 1) > _allowed )) && _end=$(( _start + _allowed - 1 ))

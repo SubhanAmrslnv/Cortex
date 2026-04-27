@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 1.3.0
+# @version: 1.4.0
 # PostToolUse code intelligence — analyzes .cs .js .ts .jsx .tsx files (≤1MB).
 # Single combined pass: complexity (methods >50 lines, nesting >3), duplication
 # (6-line sliding window cksum), naming (non-descriptive vars, capped 3/file),
@@ -59,14 +59,15 @@ line_num=0
 while IFS= read -r line; do
   (( line_num++ ))
 
-  opens=$(echo "$line" | tr -cd '{' | wc -c)
-  closes=$(echo "$line" | tr -cd '}' | wc -c)
+  _t="${line//[^{]}"; opens=${#_t}
+  _t="${line//[^}]}"; closes=${#_t}
   cur_depth=$(( cur_depth + opens - closes ))
   (( cur_depth < 0 )) && cur_depth=0
 
   if [[ $in_method -eq 0 ]]; then
-    if echo "$line" | grep -qE \
-      '(^\s*(public|private|protected|internal|static|async|override|virtual)\s+.*\(|^\s*function\s+\w+\s*\(|^\s*\w+\s*\(.*\)\s*\{|=>.*\{)'; then
+    if grep -qE \
+      '(^\s*(public|private|protected|internal|static|async|override|virtual)\s+.*\(|^\s*function\s+\w+\s*\(|^\s*\w+\s*\(.*\)\s*\{|=>.*\{)' \
+      <<< "$line"; then
       in_method=1
       method_start=$line_num
       method_base_depth=$cur_depth

@@ -11,13 +11,10 @@ SCAN_CACHE="$CORTEX_CACHE/scans"
 
 mkdir -p "$SCAN_CACHE" 2>/dev/null
 
-# Prune scan cache entries using TTL from config (default 30 days)
+# Prune scan cache: TTL-expired + zero-byte/corrupt entries in a single pass
 SCAN_TTL_DAYS=$(cortex_config '.cache.scanTtlDays' '30')
 [[ "$SCAN_TTL_DAYS" =~ ^[0-9]+$ ]] || SCAN_TTL_DAYS=30
-find "$SCAN_CACHE" -type f -mtime "+${SCAN_TTL_DAYS}" -delete 2>/dev/null || true
-
-# Remove zero-byte or corrupt cache entries (self-healing)
-find "$SCAN_CACHE" -type f -empty -delete 2>/dev/null || true
+find "$SCAN_CACHE" -type f \( -mtime "+${SCAN_TTL_DAYS}" -o -empty \) -delete 2>/dev/null || true
 
 # ── Fingerprint: key manifest files mod-times + cwd ──────────────────────────
 _fingerprint() {

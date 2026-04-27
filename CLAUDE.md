@@ -28,12 +28,13 @@ CLAUDE.md                             ← this file; loaded every session
         post-scan.sh                  ← registry-driven security scanner dispatcher (v2.6.0)
         post-audit-log.sh             ← appends every tool use to .claude/logs/audit.log (v1.3.0)
         post-code-intel.sh            ← PostToolUse code intelligence (v1.3.0)
+        post-contract-sync.sh         ← PostToolUse contract sync: test + mock data warnings (v1.0.0)
         post-error-analyzer.sh        ← PostToolUseFailure error classifier + fix suggester (v1.2.0)
         notification.sh               ← Notification aggregator (medium/high severity only) (v1.1.0)
         task-tracker.sh               ← TaskCreated/TaskCompleted → .claude/cache/tasks.json (v1.1.0)
         stop-build.sh                 ← skips if project running, retries build 3x, reports failures (v1.5.0)
         session-start.sh              ← SessionStart project profiler (v1.4.0)
-        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine (v3.0.0)
+        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine (v3.2.0)
     runtime/
       command-runner.sh               ← registry-driven command validator/dispatcher (v1.2.0)
     scanners/                         ← 25 language directories (see registry/scanners.json)
@@ -136,7 +137,7 @@ Fires after a permission is denied. Analyzes the denied command, generates a saf
 **SessionStart** — `runtime/session-start.sh` (v1.4.0)
 Runs when a session begins. Detects project type (dotnet > rust > java > node > go > python priority), framework (react/express/django/spring-boot/gin/…), and architecture pattern (mvc/clean/layered/feature-slice). Extracts dependencies, entry points, and folder structure, then writes `.claude/cache/project-profile.json` (includes `framework` and `arch` slim fields consumed by prompt-optimizer). Idempotent via fingerprint; skips rewrite if project files are unchanged. Prunes scan cache entries using configurable TTL read from `cortex.config.json → cache.scanTtlDays` (default 30 days). Also removes zero-byte/corrupt cache entries on each run.
 
-**UserPromptSubmit** — `runtime/prompt-optimizer.sh` (v3.0.0)
+**UserPromptSubmit** — `runtime/prompt-optimizer.sh` (v3.2.0)
 Intercepts every user prompt. Skips enrichment if prompt exceeds 6000 chars. Detects intent, expands keywords via a static alias dictionary (auth→login/jwt/token, etc.), scores files using keyword×filename (+3), stack-trace references (+5), git-changed preload (+4), and intent-layer patterns (+2; Service/Controller/Repository per intent). Hard caps: `max_files=2`, `max_total_lines=60`, intent-based snippet radius (bug_fix=12, feature_request=8, refactor=6, question=5). Noise paths (Tests, Migrations, Generated, dist, build) filtered unless prompt targets them. Same-basename deduplication prefers `UserService` over `IUserService`. Structural summary (types, methods, deps) prepended to each file's focused snippet. Static guidance blocks (root-cause-first / contract-first / behavior-preservation) injected by intent. Reads slim fields (`project_type`, `framework`, `arch`) from profile. Supports `--y` suffix: injects `GLOBAL ANSWER POLICY` (YES-default, destructive safeguards excluded).
 
 **PostToolUse (`Write|Edit`)** — `runtime/post-format.sh` (v2.5.0)
@@ -153,6 +154,9 @@ Analyzes modified `.cs .js .ts .jsx .tsx` files (≤1MB). Four checks:
 - **Structure** — files >500 lines; mixed UI + data-access concerns
 
 Issues accumulated as raw JSON strings; single `jq` call at the end (no per-issue jq spawn). Outputs structured JSON to stdout. Read-only; never modifies files.
+
+**PostToolUse (`Write|Edit`)** — `runtime/post-contract-sync.sh` (v1.0.0)
+Fires after every file write. Detects contract-type files (filename suffix: `Dto|Request|Response|Command|Query|Schema|Model|Entity|Contract|Payload|ViewModel`; or controller route decorators in content). For each detected contract: (1) checks for a co-named test file (`*Tests.*`, `*.test.*`, `*.spec.*`, `*_test.*`) and warns with a concrete suggestion if absent; (2) if the project uses mock/fixture/example files, strips the contract suffix to derive the entity base name, searches for mock files referencing it, and warns if none are found. Guard: mock check only fires when the project already has at least one mock/fixture/example file — prevents false alerts in projects with no frontend mock layer. Outputs structured JSON to stdout. Always exits 0; read-only; never modifies files.
 
 **PostToolUse (`Write|Edit|Bash`)** — `runtime/post-audit-log.sh` (v1.3.0)
 Appends every tool use to `.claude/logs/audit.log` (project-local; no writes to `$HOME`). Rotates at 5MB (keeps one backup). Concurrency-safe via `flock`.
@@ -182,7 +186,7 @@ Runs directly from `.claude/core/hooks/runtime/stop-build.sh`. Detects project t
 | `/impact` | `--staged` `--deep` `--since=<ref>` | Traces changed files through the dependency graph; assigns LOW/MEDIUM/HIGH risk |
 | `/regression` | `--save` `--reset` `--since=<ref>` `--deep` | Compares current diagnostics against a saved baseline; surfaces new and escalated issues |
 | `/hotspot` | `--since=<ref>` `--top=<n>` `--deep` | Scores files by change frequency, size, and dependency count; surfaces HIGH/MEDIUM risk areas |
-| `/pr-check` | `--branch=<name>` `--staged` `--skip-build` `--skip-tests` | Simulates PR validation — build, format, security, architecture, commit messages, test coverage |
+| `/pr-check` | `--branch=<name>` `--staged` `--skip-build` `--skip-tests` | Simulates PR validation — build, format, security, architecture, commit messages, test coverage, frontend mock data coverage |
 | `/pattern-drift` | `--since=<ref>` `--deep` `--layer=<name>` | Detects deviations from dominant coding patterns inferred from the codebase |
 | `/optimize` | `--file=<path>` `--lang=<lang>` `--focus=perf\|clarity` | Optimizes code for performance and readability; preserves all signatures and behavior |
 | `/overengineering-check` | `--file=<path>` `--since=<ref>` `--deep` | Detects unnecessary abstractions, pass-through layers, unused generics, and redundant DTOs |
@@ -196,7 +200,7 @@ Runs directly from `.claude/core/hooks/runtime/stop-build.sh`. Detects project t
 
 **`/hotspot`** — scores each file using `(change_freq × 3) + (size_lines / 50) + (dep_count × 2)`. Files scoring ≥40 are HIGH, 20–39 are MEDIUM. Collapses rename aliases before scoring. Outputs a Stability Index (0–100).
 
-**`/pr-check`** — runs 6 checks in sequence: build (blocks on failure), format (warns), security scan (blocks on any finding), architecture (blocks on structural violations), conventional commit validation (blocks on Claude attribution), test presence (warns). Reports ACCEPTED / WARNING / REJECTED.
+**`/pr-check`** — runs 8 checks in sequence: build (blocks on failure), format (warns), security scan (blocks on any finding), architecture (blocks on structural violations), conventional commit validation (blocks on Claude attribution), test presence (warns), frontend mock/example data coverage for contract files (warns when project uses mocks but a changed contract has no mock). Reports ACCEPTED / WARNING / REJECTED.
 
 **`/pattern-drift`** — infers dominant patterns from unchanged files at ≥60% prevalence threshold. Flags isolated deviations as FAIL; multi-file deviations (possible intentional migration) as WARN. Never flags test files.
 

@@ -136,7 +136,7 @@ Stop.
 
 ---
 
-## STEP 5 — Root cause analysis
+## STEP 5 — Root cause analysis and generate WHY and FIX
 
 For each issue in `NEW_ISSUES` and each `ESCALATED` entry in `CHANGED_ISSUES`:
 
@@ -158,21 +158,7 @@ From the commit list for each issue, select the commit that most directly relate
 - If multiple commits touched the file, prefer the most recent
 - If no commit maps to the file, note the absence explicitly — do not guess
 
-Record for each new/escalated issue:
-```json
-{
-  "issue_id": "<id>",
-  "related_commits": ["<sha> <message>", ...],
-  "root_file": "<most likely changed file or null>",
-  "root_commit": "<sha or null>"
-}
-```
-
----
-
-## STEP 6 — Generate WHY and FIX
-
-For each issue in `NEW_ISSUES` and each `ESCALATED` entry in `CHANGED_ISSUES`:
+### Generate WHY and FIX
 
 **WHY**: one technical sentence explaining the causal chain:
 - `"<root_commit> modified <root_file>, which introduced <issue.title> at <issue.file>:<issue.line>"`

@@ -347,6 +347,13 @@ After patching, check for co-located test files:
 
 If no test files exist: note `TESTS: none found` and suggest one assertion the user should add to verify the fix.
 
+**Contract-aware mock check** — for each patched file whose name matches a contract pattern (contains `Dto`, `Request`, `Response`, `Command`, `Schema`, `Model`, `Entity`, `Contract`, `Payload`, `ViewModel`):
+1. Derive the entity base name by stripping the contract suffix.
+2. Search for frontend mock/fixture/example files referencing that base name (files matching `*.mock.*`, `*.fixture.*`, `*.example.*`, `*.stub.*`, `*.stories.*` across the repo, excluding `node_modules`).
+3. For each mock file found: note `MOCKS: requires update` — list the file path and describe which fields in the contract changed so the consumer can update the mock accurately.
+4. If no mock files are found but the project contains at least one mock/fixture file elsewhere: note `MOCKS: not found` and suggest creating a sample mock object that reflects the current contract shape with realistic values.
+5. If the project has no mock files at all: skip silently (`MOCKS: n/a`).
+
 ---
 
 ## STEP 10 — Self-Healing Loop
@@ -432,16 +439,27 @@ Changed: <what was wrong> → <what it is now>
 
 ```
 Tests: <pass | requires update | none found>
+Mocks: <requires update | not found | n/a>
 ```
 
-If `requires update`:
+If `Tests: requires update`:
 ```
 Assertion to update: <test file path> — <specific assertion and why it needs to change>
 ```
 
-If `none found`:
+If `Tests: none found`:
 ```
 Suggested assertion: <one concrete test case to add>
+```
+
+If `Mocks: requires update`:
+```
+Mock files to update: <file path> — <list of fields that changed and their new types/values>
+```
+
+If `Mocks: not found`:
+```
+Suggested mock: <object literal showing all current contract fields with realistic example values>
 ```
 
 ---
