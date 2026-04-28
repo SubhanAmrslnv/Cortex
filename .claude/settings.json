@@ -49,33 +49,6 @@
             "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-scan.sh\""
           }
         ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-code-intel.sh\""
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-contract-sync.sh\""
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-audit-log.sh\""
-          }
-        ]
       }
     ],
     "Stop": [
@@ -114,36 +87,6 @@
           {
             "type": "command",
             "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-error-analyzer.sh\""
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/notification.sh\""
-          }
-        ]
-      }
-    ],
-    "TaskCreated": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/task-tracker.sh\""
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/task-tracker.sh\""
           }
         ]
       }
