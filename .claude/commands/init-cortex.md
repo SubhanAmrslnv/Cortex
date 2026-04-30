@@ -185,13 +185,102 @@ Record each as `OK` or `ERROR`.
 
 ---
 
-## STEP 6 — Validate scanner availability
+## STEP 6 — Scanner Pruning
+
+Minimize the project-local scanner footprint to only what the current repository needs. This step is idempotent and runs automatically on every `/init-cortex` invocation.
+
+**Safety boundary**: This step operates exclusively on `$CORTEX_ROOT/core/scanners/`. Never delete from `$CORTEX_ROOT/base/`, `$CORTEX_ROOT/local/`, any global or user directory, or any path outside the resolved `$CORTEX_ROOT`. Any path that does not pass the safety check below is silently skipped.
+
+### 6a — Detect active project languages
+
+Resolve the project root as `$(dirname "$CORTEX_ROOT")` (the directory that contains `.claude/`). Run all detection checks from that directory.
+
+Build a set of **scanner directories to keep**. Start with `{"generic"}` — this is unconditionally retained.
+
+Use `find` with a depth limit of 5 and explicit prune expressions to exclude `.git`, `node_modules`, `.claude`, `vendor`, `target`, `obj`, `bin`, `__pycache__`, `.venv` from all searches.
+
+Run each detection check using bash, then add the corresponding scanner directory to the keep set if the check yields any output (or succeeds):
+
+**Primary language markers (run from project root):**
+
+| Detection check | Scanner directory added |
+|---|---|
+| `find . -maxdepth 3 \( -name '*.csproj' -o -name '*.sln' \) -not -path './.claude/*' 2>/dev/null \| head -1` returns output | `dotnet` |
+| `[ -f package.json ]` | `node` |
+| `[ -f requirements.txt ] \|\| [ -f pyproject.toml ] \|\| [ -f setup.py ]` | `python` |
+| `[ -f go.mod ]` | `go` |
+| `[ -f Cargo.toml ]` | `rust` |
+| `[ -f pom.xml ] \|\| find . -maxdepth 3 \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -not -path './.claude/*' 2>/dev/null \| head -1` returns output | `java` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' -o -name 'vendor' -o -name 'target' \) -prune -o -name '*.kt' -print 2>/dev/null \| head -1` returns output | `kotlin` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' -o -name 'vendor' -o -name 'target' \) -prune -o -name '*.swift' -print 2>/dev/null \| head -1` returns output | `swift` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o -name '*.dart' -print 2>/dev/null \| head -1` returns output | `dart` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o -name '*.rb' -print 2>/dev/null \| head -1` returns output | `ruby` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name '*.scala' -o -name '*.sc' \) -print 2>/dev/null \| head -1` returns output | `scala` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o -name '*.php' -print 2>/dev/null \| head -1` returns output | `php` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name '*.r' -o -name '*.R' \) -print 2>/dev/null \| head -1` returns output | `r` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o -name '*.lua' -print 2>/dev/null \| head -1` returns output | `lua` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name '*.sh' -o -name '*.bash' \) -print 2>/dev/null \| head -1` returns output | `bash` |
+
+**Infrastructure/tooling markers (run from project root):**
+
+| Detection check | Scanner directory added |
+|---|---|
+| `find . -maxdepth 4 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name 'Dockerfile' -o -name 'docker-compose.yml' -o -name '*.dockerfile' \) -print 2>/dev/null \| head -1` returns output | `docker` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name '*.tf' -o -name '*.tfvars' \) -print 2>/dev/null \| head -1` returns output | `terraform` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name '*.yaml' -o -name '*.yml' \) -print 2>/dev/null \| head -1` returns output | `yaml` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name '*.sql' -o -name '*.psql' -o -name '*.pgsql' \) -print 2>/dev/null \| head -1` returns output | `sql` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name '*.ps1' -o -name '*.psm1' -o -name '*.psd1' \) -print 2>/dev/null \| head -1` returns output | `powershell` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o -name '*.proto' -print 2>/dev/null \| head -1` returns output | `proto` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name '*.prompt' -o -name '*.claude' \) -print 2>/dev/null \| head -1` returns output | `ai-prompt` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name 'Makefile' -o -name '*.mk' \) -print 2>/dev/null \| head -1` returns output | `makefile` |
+| `find . -maxdepth 5 \( -name '.git' -o -name 'node_modules' -o -name '.claude' \) -prune -o \( -name 'CMakeLists.txt' -o -name '*.cmake' \) -print 2>/dev/null \| head -1` returns output | `cmake` |
+
+### 6b — Compute scanner directories to remove
+
+List all subdirectories of `$CORTEX_ROOT/core/scanners/` using:
+
+```bash
+ls -d "$CORTEX_ROOT/core/scanners/"*/ 2>/dev/null | xargs -I{} basename {}
+```
+
+For each directory basename that is **not** in the keep set: mark it for removal.
+
+**Path traversal safety check** — validate each candidate path before any deletion:
+
+1. Resolve the absolute path: `CANDIDATE=$(cd "$CORTEX_ROOT/core/scanners/$dir" 2>/dev/null && pwd)`
+2. Verify the resolved path starts with `$CORTEX_ROOT/core/scanners/` (use bash prefix comparison: `[[ "$CANDIDATE" == "$CORTEX_ROOT/core/scanners/"* ]]`)
+3. Verify the basename contains only alphanumeric characters, hyphens, and underscores: `[[ "$dir" =~ ^[a-zA-Z0-9_-]+$ ]]`
+4. Verify it is a real directory, not a symlink: `[ -d "$CANDIDATE" ] && [ ! -L "$CANDIDATE" ]`
+
+If any check fails, skip the path and record:
+
+```
+TYPE: WARNING
+TITLE: Scanner pruning skipped for unsafe path: <path>
+DETAILS: Path failed safety validation — skipping to prevent unintended deletion
+WHY: Path traversal or symlink protection triggered
+FIX: Manually inspect and remove if unneeded: rm -rf "<path>"
+```
+
+### 6c — Apply removal
+
+In `--dry-run` mode: log each directory as `[WOULD REMOVE]` but do not delete.
+
+Otherwise: for each validated path, run `rm -rf "$CANDIDATE"`. Silently succeeds if the directory was already absent (idempotent). Never errors on missing directories.
+
+After removal, re-list `$CORTEX_ROOT/core/scanners/` to confirm the final retained set.
+
+---
+
+## STEP 7 — Validate scanner availability
 
 Read `$CORTEX_ROOT/registry/scanners.json`.
 
 For each extension key (excluding `*`), for each scanner path in its array, check `$CORTEX_ROOT/core/scanners/<path>` exists using bash `[ -f ]`.
 
-Record each as `OK` or `WARNING (missing)`.
+If the scanner file is missing and its parent directory is also absent from `$CORTEX_ROOT/core/scanners/`, record as `INFO (pruned)` — this is expected after Step 6 removed an unused language scanner. Do not record a WARNING or ERROR for these entries.
+
+If the scanner file is missing but its parent directory still exists, record as `WARNING (missing)`.
 
 ---
 
@@ -226,8 +315,14 @@ Generated: <timestamp>
   <command>    OK | ERROR
   ...
 
+[SCANNER PRUNING]
+  Project type(s):  <comma-separated detected languages/frameworks>
+  Kept scanners:    <scanner1> <scanner2> ... (<N> total)
+  Removed:          <scanner3> <scanner4> ... (<N> removed) | none
+  Final scanners:   <list of all remaining scanner directory names>
+
 [SCANNERS]
-  <ext>/<scanner>    OK | WARNING
+  <ext>/<scanner>    OK | INFO (pruned) | WARNING (missing)
   ...
 
 STATUS: PASS | WARN | FAIL

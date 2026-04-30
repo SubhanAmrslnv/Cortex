@@ -179,7 +179,7 @@ Runs directly from `.claude/core/hooks/runtime/stop-build.sh`. Detects project t
 
 | Command | Flags | Description |
 |---|---|---|
-| `/init-cortex` | — | Version-aware hook deployment, registry validation, settings check |
+| `/init-cortex` | — | Version-aware hook deployment, registry validation, settings check, scanner pruning |
 | `/commit` | — | Interactive conventional commit with branch routing and auto-generated message |
 | `/doctor` | `--fix` `--deep` `--dry-run` | Full system diagnostics — checks hooks, settings, registry, scanners |
 | `/update-cortex` | — | Safely update `.claude/base/` from remote with diff preview |
