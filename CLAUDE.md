@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code when working in this repository.
 
-This repo is the **Cortex framework** — a modular Claude DevOps configuration system. No application code lives here. Everything is shell scripts, JSON config, and this file. Changes here affect Claude's behavior across all projects on this machine.
+This repo is the **Cortex framework** — a modular Claude DevOps configuration system. No application code lives here. Everything is shell scripts, JSON config, and this file. Cortex is **strictly project-local**: it runs exclusively from each project's own `.claude/` directory — no global or user-scope installation required or used.
 
 ---
 
@@ -10,24 +10,31 @@ This repo is the **Cortex framework** — a modular Claude DevOps configuration 
 
 ```
 CLAUDE.md                             ← this file; loaded every session
-.cortex/                              ← framework root (all logic lives here)
+.claude/                              ← framework root (adapter + all logic lives here)
+  settings.json                       ← adapter: wires hooks to Claude Code via ${CORTEX_ROOT:-$(pwd)/.claude}
+  settings.local.json                 ← local permission overrides (not committed)
+  keybindings.json                    ← key binding customizations
+  commands/                           ← full command implementations (commit.md, doctor.md, debug.md, …)
   core/
+    shared/
+      bootstrap.sh                    ← sourced by every hook: CORTEX_ROOT resolution, jq check, common dirs (v1.0.0)
     hooks/
       guards/
-        pre-guard.sh                  ← PreToolUse guard (risk-scoring engine v2.2.0)
-        permission-request.sh         ← PermissionRequest enricher (intent + risks) v1.1.1
-        permission-denied.sh          ← PermissionDenied recovery (safe alternatives) v1.1.1
+        pre-guard.sh                  ← PreToolUse guard (risk-scoring engine v2.4.0)
+        permission-request.sh         ← PermissionRequest enricher (intent + risks) v1.2.0
+        permission-denied.sh          ← PermissionDenied recovery (safe alternatives) v1.2.0
       runtime/
-        post-format.sh                ← registry-driven formatter dispatcher (v2.4.0)
-        post-scan.sh                  ← registry-driven security scanner dispatcher (v2.5.0)
-        post-audit-log.sh             ← appends every tool use to audit.log (v1.2.0)
-        post-code-intel.sh            ← PostToolUse code intelligence (v1.2.0)
-        post-error-analyzer.sh        ← PostToolUseFailure error classifier + fix suggester (v1.1.0)
-        notification.sh               ← Notification aggregator (medium/high severity only) (v1.0.1)
-        task-tracker.sh               ← TaskCreated/TaskCompleted → .cortex/cache/tasks.json (v1.0.1)
-        stop-build.sh                 ← runs build, reports failures (no auto-fix) (v1.1.1)
-        session-start.sh              ← SessionStart project profiler (v1.2.0)
-        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine (v1.6.0)
+        post-format.sh                ← registry-driven formatter dispatcher (v2.5.0)
+        post-scan.sh                  ← registry-driven security scanner dispatcher (v2.6.0)
+        post-audit-log.sh             ← appends every tool use to .claude/logs/audit.log (v1.3.0)
+        post-code-intel.sh            ← PostToolUse code intelligence (v1.3.0)
+        post-contract-sync.sh         ← PostToolUse contract sync: test + mock data warnings (v1.0.0)
+        post-error-analyzer.sh        ← PostToolUseFailure error classifier + fix suggester (v1.2.0)
+        notification.sh               ← Notification aggregator (medium/high severity only) (v1.1.0)
+        task-tracker.sh               ← TaskCreated/TaskCompleted → .claude/cache/tasks.json (v1.1.0)
+        stop-build.sh                 ← skips if project running, retries build 3x, reports failures (v1.5.0)
+        session-start.sh              ← SessionStart project profiler (v1.4.0)
+        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine (v3.2.0)
     runtime/
       command-runner.sh               ← registry-driven command validator/dispatcher (v1.2.0)
     scanners/                         ← 25 language directories (see registry/scanners.json)
@@ -39,41 +46,27 @@ CLAUDE.md                             ← this file; loaded every session
       rust/                           ← .rs
       bash/                           ← .sh .bash
       generic/                        ← secret scan for all file types (*)
-  commands/
-    commit.md                         ← full commit command implementation
-    doctor.md                         ← full doctor command implementation
-    init-cortex.md                    ← full init-cortex command implementation
-    update-cortex.md                  ← full update-cortex command implementation
-    impact.md                         ← full impact analysis command implementation
-    regression.md                     ← full regression detection command implementation
-    hotspot.md                        ← full hotspot detection command implementation
-    pr-check.md                       ← full PR simulation command implementation
-    pattern-drift.md                  ← full pattern consistency command implementation
-    optimize.md                       ← full code optimization command implementation
-    overengineering-check.md          ← full simplicity enforcement command implementation
-    timeline.md                       ← full code evolution timeline command implementation
-    documentation.md                  ← full documentation generator command implementation
-    debug.md                          ← full autonomous debugging engine command implementation
-  state/
-    snapshot.json                     ← generated by /regression --save; regression baseline
-    index.json                        ← snapshot history index
+      (+ 17 additional language directories)
   registry/
     hooks.json                        ← hook names, versions, source paths
     commands.json                     ← discoverable command list
     scanners.json                     ← extension→scanner mapping (flat format)
   config/
-    cortex.config.json                ← framework configuration
+    cortex.config.json                ← framework configuration (v3.2.0)
   cache/
     project-profile.json              ← generated by session-start.sh; consumed by prompt-optimizer.sh
-    scans/                            ← hash-based scan cache; entries pruned after 7 days
+    scans/                            ← hash-based scan cache; TTL configurable (default 30 days)
+  logs/
+    audit.log                         ← per-tool-use audit entries; rotates at 5MB
+  state/
+    snapshot.json                     ← generated by /regression --save; regression baseline
+    index.json                        ← snapshot history index
+  temp/                               ← short-lived runtime files; created by bootstrap on session start
   test/
-    run.sh                            ← smoke test runner (bash .cortex/test/run.sh)
+    run.sh                            ← smoke test runner (bash .claude/test/run.sh)
     fixtures/                         ← JSON payloads for pre-guard, post-error-analyzer, post-scan
   base/                               ← remote Cortex content (updated by /update-cortex)
   local/                              ← project-local overrides (never overwritten)
-.claude/
-  settings.json                       ← adapter only: wires hooks to Claude Code via ${CORTEX_ROOT:-$HOME/.cortex}
-  commands/                           ← thin wrappers; delegate to .cortex/commands/
 README.md
 INSTALL.md
 ```
@@ -84,36 +77,40 @@ INSTALL.md
 - `scanners/` — analysis only; called by hooks
 - `commands/` — orchestration only; no inline business logic
 - `registry/` — configuration only; no executable code
-- `.claude/` — adapter layer only; no business logic
+- `settings.json` — adapter layer only; no business logic
+- `core/shared/bootstrap.sh` — initialization only; no hook-specific logic
 
 ---
 
 ## CORTEX_ROOT Resolution
 
-All hooks and commands resolve their runtime path dynamically. No file depends on `~/.cortex/` being hardcoded. Resolution order:
+Cortex is **strictly project-local**. CORTEX_ROOT always resolves to the project's own `.claude/` directory — there is no global or home-directory fallback.
 
-1. `$CORTEX_ROOT` environment variable (CI, Docker, custom install)
-2. `$(pwd)/.cortex` — project-local install if present
-3. `$HOME/.cortex` — global install fallback
+Resolution order:
+1. `$CORTEX_ROOT` environment variable (CI, Docker, override)
+2. `$(pwd)/.claude` — project-local install (standard)
 
-Every hook contains this block near the top:
+If `.claude/` does not exist at the project root, hooks abort gracefully (exit 0) with a diagnostic message. They never fall back to a user-global directory.
+
+Every hook sources the shared bootstrap instead of duplicating resolution logic:
 ```bash
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.cortex" ]; then
-    export CORTEX_ROOT="$(pwd)/.cortex"
-  else
-    export CORTEX_ROOT="$HOME/.cortex"
-  fi
-fi
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 ```
 
-`settings.json` uses `${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/...` for all hook paths.
+`bootstrap.sh` (`.claude/core/shared/bootstrap.sh`) handles:
+- CORTEX_ROOT assignment and validation
+- jq availability check
+- `CORTEX_CACHE`, `CORTEX_LOGS`, `CORTEX_TEMP`, `CORTEX_STATE`, `CORTEX_CONFIG` variables
+- `mkdir -p` for all runtime directories
+- `cortex_config()` helper for reading `cortex.config.json` with defaults
+
+`settings.json` uses `${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/...` for all hook paths.
 
 ---
 
 ## Active Hooks
 
-**PreToolUse (`Bash`)** — `guards/pre-guard.sh` (v2.2.0)
+**PreToolUse (`Bash`)** — `guards/pre-guard.sh` (v2.4.0)
 Risk-scoring engine. Accumulates a numeric score across 6 categories, then decides:
 - `risk < warn` → silent allow
 - `risk warn–(block-1)` → allow with JSON warning
@@ -131,47 +128,50 @@ Score categories:
 | Sensitive files | `.env .pem .key .pfx` | +25 |
 | Protected branch | `main / master / develop` (git commands only) | +20 |
 
-**PermissionRequest** — `guards/permission-request.sh` (v1.1.1)
+**PermissionRequest** — `guards/permission-request.sh` (v1.2.0)
 Fires when a tool requires user approval. Outputs structured JSON — intent classification, human-readable explanation, risk list, safer alternative — to inform the approval decision. Never blocks.
 
-**PermissionDenied** — `guards/permission-denied.sh` (v1.1.1)
+**PermissionDenied** — `guards/permission-denied.sh` (v1.2.0)
 Fires after a permission is denied. Analyzes the denied command, generates a safe alternative, and sets `retry: true/false`. Always exits 0.
 
-**SessionStart** — `runtime/session-start.sh` (v1.2.0)
-Runs when a session begins. Detects project type (dotnet > rust > java > node > go > python priority), extracts dependencies, entry points, and folder structure, then writes `.cortex/cache/project-profile.json`. Idempotent via fingerprint; skips rewrite if project files are unchanged. Prunes scan cache entries older than 7 days on each run.
+**SessionStart** — `runtime/session-start.sh` (v1.4.0)
+Runs when a session begins. Detects project type (dotnet > rust > java > node > go > python priority), framework (react/express/django/spring-boot/gin/…), and architecture pattern (mvc/clean/layered/feature-slice). Extracts dependencies, entry points, and folder structure, then writes `.claude/cache/project-profile.json` (includes `framework` and `arch` slim fields consumed by prompt-optimizer). Idempotent via fingerprint; skips rewrite if project files are unchanged. Prunes scan cache entries using configurable TTL read from `cortex.config.json → cache.scanTtlDays` (default 30 days). Also removes zero-byte/corrupt cache entries on each run.
 
-**UserPromptSubmit** — `runtime/prompt-optimizer.sh` (v1.6.0)
-Intercepts every user prompt (reads from stdin). Detects intent (`bug_fix / feature_request / refactor / question`), finds relevant files via keyword + stack-trace + naming heuristics (cached single `find` pass), extracts ±20-line snippets, loads the project profile, and outputs a structured context-rich prompt replacing the original. Supports `--y` suffix flag: appending `--y` to any prompt strips the flag and injects a `GLOBAL ANSWER POLICY` block that defaults all binary decisions to YES (security and destructive safeguards excluded).
+**UserPromptSubmit** — `runtime/prompt-optimizer.sh` (v3.2.0)
+Intercepts every user prompt. Skips enrichment if prompt exceeds 6000 chars. Detects intent, expands keywords via a static alias dictionary (auth→login/jwt/token, etc.), scores files using keyword×filename (+3), stack-trace references (+5), git-changed preload (+4), and intent-layer patterns (+2; Service/Controller/Repository per intent). Hard caps: `max_files=2`, `max_total_lines=60`, intent-based snippet radius (bug_fix=12, feature_request=8, refactor=6, question=5). Noise paths (Tests, Migrations, Generated, dist, build) filtered unless prompt targets them. Same-basename deduplication prefers `UserService` over `IUserService`. Structural summary (types, methods, deps) prepended to each file's focused snippet. Static guidance blocks (root-cause-first / contract-first / behavior-preservation) injected by intent. Reads slim fields (`project_type`, `framework`, `arch`) from profile. Supports `--y` suffix: injects `GLOBAL ANSWER POLICY` (YES-default, destructive safeguards excluded).
 
-**PostToolUse (`Write|Edit`)** — `runtime/post-format.sh` (v2.4.0)
-Registry-driven: reads `.cortex/registry/scanners.json`, dispatches to all `format.sh` entries matching the file extension.
+**PostToolUse (`Write|Edit`)** — `runtime/post-format.sh` (v2.5.0)
+Registry-driven: reads `.claude/registry/scanners.json`, dispatches to all `format.sh` entries matching the file extension.
 
-**PostToolUse (`Write|Edit`)** — `runtime/post-scan.sh` (v2.5.0)
+**PostToolUse (`Write|Edit`)** — `runtime/post-scan.sh` (v2.6.0)
 Registry-driven: always runs the `*` wildcard scanners (generic secret scan), then dispatches to extension-specific security scanners. Concurrency-limited (`CORTEX_MAX_JOBS`, default 4), output-isolated via temp files, hash-cached to skip unchanged files, path-traversal-safe.
 
-**PostToolUse (`Write|Edit`)** — `runtime/post-code-intel.sh` (v1.2.0)
+**PostToolUse (`Write|Edit`)** — `runtime/post-code-intel.sh` (v1.3.0)
 Analyzes modified `.cs .js .ts .jsx .tsx` files (≤1MB). Four checks:
 - **Complexity** — methods >50 lines (brace-depth tracking); nesting depth >3 — single combined pass
-- **Duplication** — sliding 6-line window cksum comparison
+- **Duplication** — sliding 6-line window cksum comparison (single correct awk pass)
 - **Naming** — non-descriptive variable names (`temp`, `data`, `obj`, etc.); capped at 3/file
 - **Structure** — files >500 lines; mixed UI + data-access concerns
 
-Outputs structured JSON to stdout. Read-only; never modifies files.
+Issues accumulated as raw JSON strings; single `jq` call at the end (no per-issue jq spawn). Outputs structured JSON to stdout. Read-only; never modifies files.
 
-**PostToolUse (`Write|Edit|Bash`)** — `runtime/post-audit-log.sh` (v1.2.0)
-Appends every tool use to `~/.claude/audit.log`. Rotates at 5MB (keeps one backup). Concurrency-safe via `flock`.
+**PostToolUse (`Write|Edit`)** — `runtime/post-contract-sync.sh` (v1.0.0)
+Fires after every file write. Detects contract-type files (filename suffix: `Dto|Request|Response|Command|Query|Schema|Model|Entity|Contract|Payload|ViewModel`; or controller route decorators in content). For each detected contract: (1) checks for a co-named test file (`*Tests.*`, `*.test.*`, `*.spec.*`, `*_test.*`) and warns with a concrete suggestion if absent; (2) if the project uses mock/fixture/example files, strips the contract suffix to derive the entity base name, searches for mock files referencing it, and warns if none are found. Guard: mock check only fires when the project already has at least one mock/fixture/example file — prevents false alerts in projects with no frontend mock layer. Outputs structured JSON to stdout. Always exits 0; read-only; never modifies files.
 
-**PostToolUseFailure** — `runtime/post-error-analyzer.sh` (v1.1.0)
+**PostToolUse (`Write|Edit|Bash`)** — `runtime/post-audit-log.sh` (v1.3.0)
+Appends every tool use to `.claude/logs/audit.log` (project-local; no writes to `$HOME`). Rotates at 5MB (keeps one backup). Concurrency-safe via `flock`.
+
+**PostToolUseFailure** — `runtime/post-error-analyzer.sh` (v1.2.0)
 Fires when a tool invocation fails. Single-pass classifier sets error type, root cause, and fix suggestion simultaneously (eliminates double-scan). Classifies: `runtime_error`, `dependency_error`, `permission_error`, `syntax_error`, `build_error`, `network_error`, `timeout_error`. Always exits 0.
 
-**Notification** — `runtime/notification.sh` (v1.0.1)
-Aggregates signals from prior hooks, filters low-severity noise, and emits only medium/high severity actionable notifications. Always exits 0.
+**Notification** — `runtime/notification.sh` (v1.1.0)
+Aggregates signals from prior hooks, filters low-severity noise, and emits only medium/high severity actionable notifications. Notifications accumulated as raw JSON strings; single `jq` call builds the final response (no per-notification jq spawn). Replaces `bc` math with bash integer arithmetic. Always exits 0.
 
-**TaskCreated / TaskCompleted** — `runtime/task-tracker.sh` (v1.0.1)
-Persists task lifecycle events to `.cortex/cache/tasks.json`. Fires on both task creation and task completion. Always exits 0.
+**TaskCreated / TaskCompleted** — `runtime/task-tracker.sh` (v1.1.0)
+Persists task lifecycle events to `.claude/cache/tasks.json`. Validates JSON integrity on every run; resets corrupt or zero-byte files. Fires on both task creation and task completion. Always exits 0.
 
-**Stop** — `runtime/stop-build.sh` (v1.1.1)
-Runs directly from `.cortex/core/hooks/runtime/stop-build.sh`. Detects project type, runs the build, prints errors on failure. Does NOT auto-fix.
+**Stop** — `runtime/stop-build.sh` (v1.5.0)
+Runs directly from `.claude/core/hooks/runtime/stop-build.sh`. Detects project type. Skips the build entirely if the project's runtime process is already active (debug/dev server running). Otherwise retries the build up to 3 times before giving up, prints errors on failure. Does NOT auto-fix.
 
 ---
 
@@ -179,14 +179,14 @@ Runs directly from `.cortex/core/hooks/runtime/stop-build.sh`. Detects project t
 
 | Command | Flags | Description |
 |---|---|---|
-| `/init-cortex` | — | Version-aware hook deployment, registry validation, settings check |
+| `/init-cortex` | — | Version-aware hook deployment, registry validation, settings check, scanner pruning |
 | `/commit` | — | Interactive conventional commit with branch routing and auto-generated message |
 | `/doctor` | `--fix` `--deep` `--dry-run` | Full system diagnostics — checks hooks, settings, registry, scanners |
-| `/update-cortex` | — | Safely update `.cortex/base/` from remote with diff preview |
+| `/update-cortex` | — | Safely update `.claude/base/` from remote with diff preview |
 | `/impact` | `--staged` `--deep` `--since=<ref>` | Traces changed files through the dependency graph; assigns LOW/MEDIUM/HIGH risk |
 | `/regression` | `--save` `--reset` `--since=<ref>` `--deep` | Compares current diagnostics against a saved baseline; surfaces new and escalated issues |
 | `/hotspot` | `--since=<ref>` `--top=<n>` `--deep` | Scores files by change frequency, size, and dependency count; surfaces HIGH/MEDIUM risk areas |
-| `/pr-check` | `--branch=<name>` `--staged` `--skip-build` `--skip-tests` | Simulates PR validation — build, format, security, architecture, commit messages, test coverage |
+| `/pr-check` | `--branch=<name>` `--staged` `--skip-build` `--skip-tests` | Simulates PR validation — build, format, security, architecture, commit messages, test coverage, frontend mock data coverage |
 | `/pattern-drift` | `--since=<ref>` `--deep` `--layer=<name>` | Detects deviations from dominant coding patterns inferred from the codebase |
 | `/optimize` | `--file=<path>` `--lang=<lang>` `--focus=perf\|clarity` | Optimizes code for performance and readability; preserves all signatures and behavior |
 | `/overengineering-check` | `--file=<path>` `--since=<ref>` `--deep` | Detects unnecessary abstractions, pass-through layers, unused generics, and redundant DTOs |
@@ -196,11 +196,11 @@ Runs directly from `.cortex/core/hooks/runtime/stop-build.sh`. Detects project t
 
 **`/impact`** — classifies each changed file by architectural role (Controller / Service / Repository / DTO / Configuration / Schema / Hook / Scanner), traces consumers via Grep, computes impact metrics, assigns a risk level, and outputs a single deterministic FIX recommendation. Use before merging to assess blast radius.
 
-**`/regression`** — saves a `/doctor` output snapshot and diffs future runs against it. Issues are fingerprinted for stable comparison. New issues and severity escalations are regressions; root cause is traced via `git log` between snapshot commit and HEAD. State stored in `.cortex/state/snapshot.json`.
+**`/regression`** — saves a `/doctor` output snapshot and diffs future runs against it. Issues are fingerprinted for stable comparison. New issues and severity escalations are regressions; root cause is traced via `git log` between snapshot commit and HEAD. State stored in `.claude/state/snapshot.json`.
 
 **`/hotspot`** — scores each file using `(change_freq × 3) + (size_lines / 50) + (dep_count × 2)`. Files scoring ≥40 are HIGH, 20–39 are MEDIUM. Collapses rename aliases before scoring. Outputs a Stability Index (0–100).
 
-**`/pr-check`** — runs 6 checks in sequence: build (blocks on failure), format (warns), security scan (blocks on any finding), architecture (blocks on structural violations), conventional commit validation (blocks on Claude attribution), test presence (warns). Reports ACCEPTED / WARNING / REJECTED.
+**`/pr-check`** — runs 8 checks in sequence: build (blocks on failure), format (warns), security scan (blocks on any finding), architecture (blocks on structural violations), conventional commit validation (blocks on Claude attribution), test presence (warns), frontend mock/example data coverage for contract files (warns when project uses mocks but a changed contract has no mock). Reports ACCEPTED / WARNING / REJECTED.
 
 **`/pattern-drift`** — infers dominant patterns from unchanged files at ≥60% prevalence threshold. Flags isolated deviations as FAIL; multi-file deviations (possible intentional migration) as WARN. Never flags test files.
 
@@ -220,49 +220,52 @@ Runs directly from `.cortex/core/hooks/runtime/stop-build.sh`. Detects project t
 
 ### Editing hooks
 
-- Source of truth: `.cortex/core/hooks/`
-- Scanners: `.cortex/core/scanners/`
-- All hooks resolve their runtime path via `$CORTEX_ROOT` (see CORTEX_ROOT Resolution above)
-- After editing any hook or scanner, copy `.cortex/` to `~/.cortex/` or run `/init-cortex`
-- Test hooks manually: `bash .cortex/core/hooks/<subpath>/<hook>.sh` with a sample JSON payload via stdin
+- Source of truth: `.claude/core/hooks/`
+- Scanners: `.claude/core/scanners/`
+- All hooks source `bootstrap.sh` for CORTEX_ROOT resolution (see CORTEX_ROOT Resolution above)
+- After editing any hook or scanner, run `/init-cortex` to validate and register the changes
+- Test hooks manually: `bash .claude/core/hooks/<subpath>/<hook>.sh` with a sample JSON payload via stdin
 - All hooks carry a `# @version: X.Y.Z` tag on line 2 — increment when changing
 
 ### Hook versioning
 
-Hooks carry `# @version: X.Y.Z` on line 2. The registry at `.cortex/registry/hooks.json` tracks the expected version per hook. `/init-cortex` compares source vs runtime and redeploys only if source is newer.
+Hooks carry `# @version: X.Y.Z` on line 2. The registry at `.claude/registry/hooks.json` tracks the expected version per hook. `/init-cortex` compares source vs runtime and redeploys only if source is newer.
 
 To release a hook update:
-1. Increment `# @version:` in the source file under `.cortex/core/hooks/`
-2. Update the matching version in `.cortex/registry/hooks.json`
-3. Run `/init-cortex` (or copy `.cortex/` to `~/.cortex/` manually)
+1. Increment `# @version:` in the source file under `.claude/core/hooks/`
+2. Update the matching version in `.claude/registry/hooks.json`
+3. Run `/init-cortex`
 
 ### Adding a new hook
 
-1. Create the script under `.cortex/core/hooks/guards/` or `.cortex/core/hooks/runtime/`
-2. Add the CORTEX_ROOT fallback block at the top (see CORTEX_ROOT Resolution above)
-3. Add it to `.cortex/registry/hooks.json` with `version` and `source`
+1. Create the script under `.claude/core/hooks/guards/` or `.claude/core/hooks/runtime/`
+2. Add this single line at the top (replaces all CORTEX_ROOT boilerplate):
+   ```bash
+   source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
+   ```
+3. Add it to `.claude/registry/hooks.json` with `version` and `source`
 4. Add its wiring entry to `.claude/settings.json` under the correct event key
 5. Run `/init-cortex`
 
-Hook paths in `settings.json` use `${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/<subdir>/<filename>`.
+Hook paths in `settings.json` use `${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/<subdir>/<filename>`.
 
 ### Adding a new scanner
 
-1. Create the script under `.cortex/core/scanners/<language>/`
-2. Add it to `.cortex/registry/scanners.json` (flat extension→scanner-array format)
+1. Create the script under `.claude/core/scanners/<language>/`
+2. Add it to `.claude/registry/scanners.json` (flat extension→scanner-array format)
 3. No hook changes required — `post-scan.sh` and `post-format.sh` are registry-driven
 
 ### Adding a new command
 
-1. Create `<command>.md` in `.cortex/commands/` with the full implementation
-2. Create a thin wrapper `<command>.md` in `.claude/commands/` delegating to the command-runner
-3. Add the command name to `.cortex/registry/commands.json`
+1. Create `<command>.md` in `.claude/commands/` with the full implementation
+2. Add the command name to `.claude/registry/commands.json`
+3. Run `/init-cortex` to validate the registry
 
 ### Editing settings.json
 
 - `.claude/settings.json` is the adapter layer only — it wires hook scripts to Claude Code events
-- All hook paths use `${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/<subdir>/<filename>`
-- The Stop hook points to `${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/runtime/stop-build.sh`
+- All hook paths use `${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/<subdir>/<filename>`
+- The Stop hook points to `${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/stop-build.sh`
 
 ### Conventional commits (enforced by pre-guard.sh)
 

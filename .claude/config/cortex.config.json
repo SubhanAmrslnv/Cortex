@@ -1,0 +1,10 @@
+{
+  "version": "3.2.0",
+  "riskThresholds": {
+    "warn": 30,
+    "block": 70
+  },
+  "cache": {
+    "scanTtlDays": 30
+  }
+}

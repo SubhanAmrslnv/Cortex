@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-# @version: 1.1.0
+# @version: 1.2.0
 # PostToolUseFailure error analyzer — parses stderr, classifies error type,
 # extracts file/line, identifies root cause, emits a fix suggestion.
 # Reads payload from stdin. Always exits 0.
 
-if [ -z "$CORTEX_ROOT" ]; then
-  if [ -d "$(pwd)/.cortex" ]; then
-    export CORTEX_ROOT="$(pwd)/.cortex"
-  else
-    export CORTEX_ROOT="$HOME/.cortex"
-  fi
-fi
-command -v jq &>/dev/null || exit 0
+source "${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh" || exit 0
 
 input=$(cat)
 [[ -z "$input" ]] && exit 0
@@ -20,7 +13,6 @@ stderr=$(echo "$input" | jq -r '.stderr // .error_output // empty' 2>/dev/null)
 [[ -z "$stderr" ]] && exit 0
 
 # ─── Single-pass classifier: type + root_cause + suggestion set together ────
-# Eliminates a full second pass through identical patterns.
 
 type="unknown"
 root_cause="Could not determine root cause from available output"

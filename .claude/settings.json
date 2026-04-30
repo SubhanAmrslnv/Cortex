@@ -1,12 +1,32 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/session-start.sh\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/prompt-optimizer.sh\""
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/guards/pre-guard.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/pre-guard.sh\""
           }
         ]
       }
@@ -17,16 +37,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/runtime/post-format.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-format.sh\""
           }
         ]
       },
       {
-        "matcher": "Write|Edit|Bash",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/runtime/post-audit-log.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-scan.sh\""
           }
         ]
       }
@@ -36,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/runtime/stop-build.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/stop-build.sh\""
           }
         ]
       }
@@ -46,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/guards/permission-request.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/permission-request.sh\""
           }
         ]
       }
@@ -56,7 +76,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/guards/permission-denied.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/guards/permission-denied.sh\""
           }
         ]
       }
@@ -66,37 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/runtime/post-error-analyzer.sh"
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/runtime/notification.sh"
-          }
-        ]
-      }
-    ],
-    "TaskCreated": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/runtime/task-tracker.sh"
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CORTEX_ROOT:-$HOME/.cortex}/core/hooks/runtime/task-tracker.sh"
+            "command": "bash \"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-error-analyzer.sh\""
           }
         ]
       }

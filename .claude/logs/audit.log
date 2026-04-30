@@ -1,0 +1,512 @@
+{"time":"2026-04-26T15:29:41+04:00","tool":"Write","input":{}}
+{
+  "time": "2026-04-26T15:30:06+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\\.claude\\core\\hooks\\runtime\\session-start.sh",
+    "old_string": "#!/usr/bin/env bash\n# @version: 1.3.0\n# SessionStart project profiler — detects project type, extracts deps, entry points,\n# folder structure; writes .claude/cache/project-profile.json.\n# Idempotent via fingerprint. Prunes scan cache using configurable TTL (default 30 days).",
+    "new_string": "#!/usr/bin/env bash\n# @version: 1.4.0\n# SessionStart project profiler — detects project type, framework, arch, extracts deps,\n# entry points, folder structure; writes .claude/cache/project-profile.json.\n# Idempotent via fingerprint. Prunes scan cache using configurable TTL (default 30 days).",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-26T15:30:43+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-26T15:30:55+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\\.claude\\registry\\hooks.json",
+    "old_string": "  \"session-start.sh\": {\n    \"version\": \"1.3.0\",\n    \"source\": \"core/hooks/runtime/session-start.sh\"\n  },\n  \"prompt-optimizer.sh\": {\n    \"version\": \"2.0.0\",\n    \"source\": \"core/hooks/runtime/prompt-optimizer.sh\"\n  },",
+    "new_string": "  \"session-start.sh\": {\n    \"version\": \"1.4.0\",\n    \"source\": \"core/hooks/runtime/session-start.sh\"\n  },\n  \"prompt-optimizer.sh\": {\n    \"version\": \"3.0.0\",\n    \"source\": \"core/hooks/runtime/prompt-optimizer.sh\"\n  },",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-26T15:31:22+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\\CLAUDE.md",
+    "old_string": "        session-start.sh              ← SessionStart project profiler (v1.3.0)\n        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine (v2.0.0)",
+    "new_string": "        session-start.sh              ← SessionStart project profiler (v1.4.0)\n        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine (v3.0.0)",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-26T15:31:45+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-26T15:31:51+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && grep -n \"@version\" .claude/core/hooks/runtime/prompt-optimizer.sh .claude/core/hooks/runtime/session-start.sh && echo \"---\" && grep -A1 '\"prompt-optimizer\\|session-start\"' .claude/registry/hooks.json",
+    "description": "Verify version tags match registry"
+  }
+}
+{
+  "time": "2026-04-26T15:31:58+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && bash -n .claude/core/hooks/runtime/prompt-optimizer.sh && echo \"prompt-optimizer: syntax OK\" && bash -n .claude/core/hooks/runtime/session-start.sh && echo \"session-start: syntax OK\"",
+    "description": "Bash syntax check on both modified scripts"
+  }
+}
+{
+  "time": "2026-04-26T15:32:04+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && grep -n \"O(n\\|O(k\\|O(1\" .claude/core/hooks/runtime/prompt-optimizer.sh | head -20",
+    "description": "Confirm complexity annotations in comments"
+  }
+}
+{
+  "time": "2026-04-26T15:32:16+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && echo '{\"prompt\":\"fix the auth login error in UserService\"}' | CORTEX_ROOT=\"$(pwd)/.claude\" bash .claude/core/hooks/runtime/prompt-optimizer.sh 2>/dev/null | jq -r '.prompt' | head -30",
+    "description": "Smoke test prompt-optimizer with a bug_fix auth prompt"
+  }
+}
+{
+  "time": "2026-04-26T15:32:21+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && echo '{\"prompt\":\"fix the auth login error in UserService\"}' | CORTEX_ROOT=\"$(pwd)/.claude\" bash .claude/core/hooks/runtime/prompt-optimizer.sh 2>&1 | head -40",
+    "description": "Smoke test with stderr visible"
+  }
+}
+{
+  "time": "2026-04-26T15:32:28+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && printf '{\"prompt\":\"fix the auth login error in UserService\"}' | CORTEX_ROOT=\"$(pwd)/.claude\" bash .claude/core/hooks/runtime/prompt-optimizer.sh; echo \"exit: $?\"",
+    "description": "Smoke test checking exit code"
+  }
+}
+{
+  "time": "2026-04-26T15:32:42+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && printf '{\"prompt\":\"fix the auth login error in UserService\"}' | CORTEX_ROOT=\"$(pwd)/.claude\" bash -x .claude/core/hooks/runtime/prompt-optimizer.sh 2>&1 | head -50",
+    "description": "Trace execution of prompt-optimizer for debugging"
+  }
+}
+{
+  "time": "2026-04-26T15:32:48+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && printf '{\"prompt\":\"fix the auth login error in UserService\"}' | CORTEX_ROOT=\"$(pwd)/.claude\" bash -x .claude/core/hooks/runtime/prompt-optimizer.sh 2>&1 | tail -50",
+    "description": "Check end of execution trace"
+  }
+}
+{
+  "time": "2026-04-26T15:33:08+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd \"c:\\Users\\emras\\OneDrive\\Рабочий стол\\Cortex\" && mkdir -p /tmp/cortex-test/src && cat > /tmp/cortex-test/src/UserService.ts << 'EOF'\nexport class UserService {\n  constructor(private readonly repo: IUserRepository) {}\n  async createUser(data: CreateUserDto): Promise<User> { return this.repo.save(data); }\n  async getUser(id: string): Promise<User> { return this.repo.findById(id); }\n  async deleteUser(id: string): Promise<void> { return this.repo.delete(id); }\n}\nEOF\nprintf '{\"prompt\":\"fix the auth login error in UserService\"}' \\\n  | CORTEX_ROOT=\"$(pwd)/.claude\" bash .claude/core/hooks/runtime/prompt-optimizer.sh 2>/dev/null \\\n  | jq -r '.prompt' < /dev/stdin << EOF2\n$(printf '{\"prompt\":\"fix the auth login error in UserService\"}')\nEOF2",
+    "description": "Create synthetic test file and run smoke test"
+  }
+}
+{
+  "time": "2026-04-26T15:33:28+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "TMPDIR=/tmp/cortex-test && mkdir -p \"$TMPDIR/src\" && cat > \"$TMPDIR/src/UserService.ts\" << 'EOF'\nexport class UserService {\n  constructor(private readonly repo: IUserRepository) {}\n  async createUser(data: CreateUserDto): Promise<User> { return this.repo.save(data); }\n  async getUser(id: string): Promise<User> { return this.repo.findById(id); }\n  async deleteUser(id: string): Promise<void> { return this.repo.delete(id); }\n}\nEOF\ncd \"$TMPDIR\" && printf '{\"prompt\":\"fix the auth login error in UserService\"}' \\\n  | CORTEX_ROOT=\"c:/Users/emras/OneDrive/Рабочий стол/Cortex/.claude\" bash \"c:/Users/emras/OneDrive/Рабочий стол/Cortex/.claude/core/hooks/runtime/prompt-optimizer.sh\" 2>/dev/null \\\n  | jq -r '.prompt'",
+    "description": "Test from directory containing a TypeScript source file"
+  }
+}
+{"time":"2026-04-26T15:34:54+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-26T15:35:46+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "bash -n \"c:/Users/emras/OneDrive/Рабочий стол/Cortex/.claude/core/hooks/runtime/prompt-optimizer.sh\" && echo \"syntax OK\" && cd /tmp/cortex-test && printf '{\"prompt\":\"fix the auth login error in UserService\"}' \\\n  | CORTEX_ROOT=\"c:/Users/emras/OneDrive/Рабочий стол/Cortex/.claude\" bash \"c:/Users/emras/OneDrive/Рабочий стол/Cortex/.claude/core/hooks/runtime/prompt-optimizer.sh\" 2>/dev/null \\\n  | jq -r '.prompt'",
+    "description": "Re-run smoke test after newline fix"
+  }
+}
+{
+  "time": "2026-04-26T15:36:07+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "cd /tmp/cortex-test && printf '{\"prompt\":\"add a createOrder method to UserService --y\"}' \\\n  | CORTEX_ROOT=\"c:/Users/emras/OneDrive/Рабочий стол/Cortex/.claude\" bash \"c:/Users/emras/OneDrive/Рабочий стол/Cortex/.claude/core/hooks/runtime/prompt-optimizer.sh\" 2>/dev/null \\\n  | jq -r '.prompt'",
+    "description": "Test feature_request intent + --y flag"
+  }
+}
+{
+  "time": "2026-04-26T15:36:17+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "rm -rf /tmp/cortex-test",
+    "description": "Remove smoke-test temp directory"
+  }
+}
+{"time":"2026-04-27T13:48:26+04:00","tool":"Write","input":{}}
+{"time":"2026-04-27T13:48:39+04:00","tool":"Write","input":{}}
+{
+  "time": "2026-04-27T13:51:58+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\prompt-optimizer.sh",
+    "old_string": "  [\"test\"]=\"spec unit integration mock\"\n  [\"deploy\"]=\"release build publish pipeline\"\n)",
+    "new_string": "  [\"test\"]=\"spec unit integration mock\"\n  [\"deploy\"]=\"release build publish pipeline\"\n  [\"dto\"]=\"request response contract schema payload\"\n  [\"mock\"]=\"fixture example stub seed factory\"\n  [\"contract\"]=\"dto interface schema api endpoint\"\n  [\"schema\"]=\"model entity struct record type\"\n)",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-27T13:52:15+04:00","tool":"Edit","input":{}}
+{"time":"2026-04-27T13:52:46+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-27T13:52:54+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "for prompt in \\\n  \"fix the login bug\" \\\n  \"add user registration endpoint\" \\\n  \"refactor the auth service\" \\\n  \"what does this function do\" \\\n  \"debug the payment crash\" \\\n  \"investigate why the token expires early\" \\\n  \"root cause the null pointer in UserService\" \\\n  \"deep dive into the auth flow\" \\\n  \"full analysis of the cache layer\" \\\n  \"trace issue with the api gateway\"; do\n  lower=$(echo \"$prompt\" | tr '[:upper:]' '[:lower:]')\n  if echo \"$lower\" | grep -qE '\\b(debug|investigate)\\b|(analyze deeply|root cause|trace issue|full analysis|deep dive)'; then\n    mode=\"HEAVY\"\n  else\n    mode=\"light\"\n  fi\n  printf \"%-55s → %s\\n\" \"\\\"$prompt\\\"\" \"$mode\"\ndone",
+    "description": "Test mode detection logic against sample prompts"
+  }
+}
+{
+  "time": "2026-04-27T13:52:56+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\pr-check.md",
+    "old_string": "| `ARCHITECTURE: WARN` or `FORMAT: WARN` or `COMMITS: WARN` or `TESTS: MISSING` | `WARNING` |",
+    "new_string": "| `ARCHITECTURE: WARN` or `FORMAT: WARN` or `COMMITS: WARN` or `TESTS: MISSING` or `MOCKS: MISSING` | `WARNING` |",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:53:02+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\registry\\hooks.json",
+    "old_string": "  \"prompt-optimizer.sh\": {\n    \"version\": \"3.0.0\",",
+    "new_string": "  \"prompt-optimizer.sh\": {\n    \"version\": \"3.1.0\",",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:53:04+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\pr-check.md",
+    "old_string": "  TESTS:        ✔ PRESENT | ⚠ MISSING | ⚠ SKIPPED\n```",
+    "new_string": "  TESTS:        ✔ PRESENT | ⚠ MISSING | ⚠ SKIPPED\n  MOCKS:        ✔ PRESENT | ⚠ MISSING | ⚠ N/A     | ⚠ SKIPPED\n```",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:53:15+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\pr-check.md",
+    "old_string": "- Never flag TESTS: MISSING for files that are themselves test files",
+    "new_string": "- Never flag TESTS: MISSING for files that are themselves test files\n- Never flag MOCKS: MISSING unless the project already has at least one mock/fixture/example file\n- Never flag MOCKS: MISSING for files that are themselves mock or fixture files\n- Never skip the contract pattern check in 7b — always evaluate every changed file against the contract pattern list",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-27T13:53:32+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-27T13:54:34+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\debug.md",
+    "old_string": "### VERIFY\n\n```\nTests: <pass | requires update | none found>\n```\n\nIf `requires update`:\n```\nAssertion to update: <test file path> — <specific assertion and why it needs to change>\n```\n\nIf `none found`:\n```\nSuggested assertion: <one concrete test case to add>\n```",
+    "new_string": "### VERIFY\n\n```\nTests: <pass | requires update | none found>\nMocks: <requires update | not found | n/a>\n```\n\nIf `Tests: requires update`:\n```\nAssertion to update: <test file path> — <specific assertion and why it needs to change>\n```\n\nIf `Tests: none found`:\n```\nSuggested assertion: <one concrete test case to add>\n```\n\nIf `Mocks: requires update`:\n```\nMock files to update: <file path> — <list of fields that changed and their new types/values>\n```\n\nIf `Mocks: not found`:\n```\nSuggested mock: <object literal showing all current contract fields with realistic example values>\n```",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:54:47+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\prompt-optimizer.sh",
+    "old_string": "if [[ \"$analysis_mode\" == \"heavy\" ]]; then\n  # Heavy: full analysis caps (preserved from v3.0.0)\n  case \"$intent\" in\n    bug_fix)         snippet_radius=12; max_lines_per_file=30 ;;\n    feature_request) snippet_radius=8;  max_lines_per_file=24 ;;\n    refactor)        snippet_radius=6;  max_lines_per_file=20 ;;\n    *)               snippet_radius=5;  max_lines_per_file=20 ;;\n  esac\n  MAX_FILES=2\n  MAX_TOTAL_LINES=60",
+    "new_string": "if [[ \"$analysis_mode\" == \"heavy\" ]]; then\n  # Heavy: reduced from v3.0.0 — still deeper than light but no longer exhaustive\n  case \"$intent\" in\n    bug_fix)         snippet_radius=8; max_lines_per_file=20 ;;\n    feature_request) snippet_radius=6; max_lines_per_file=16 ;;\n    refactor)        snippet_radius=5; max_lines_per_file=14 ;;\n    *)               snippet_radius=4; max_lines_per_file=12 ;;\n  esac\n  MAX_FILES=2\n  MAX_TOTAL_LINES=45",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:54:58+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\prompt-optimizer.sh",
+    "old_string": "# @version: 3.1.0",
+    "new_string": "# @version: 3.2.0",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:55:00+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\registry\\hooks.json",
+    "old_string": "  \"post-code-intel.sh\": {\n    \"version\": \"1.3.0\",\n    \"source\": \"core/hooks/runtime/post-code-intel.sh\"\n  },\n  \"post-audit-log.sh\": {",
+    "new_string": "  \"post-code-intel.sh\": {\n    \"version\": \"1.3.0\",\n    \"source\": \"core/hooks/runtime/post-code-intel.sh\"\n  },\n  \"post-contract-sync.sh\": {\n    \"version\": \"1.0.0\",\n    \"source\": \"core/hooks/runtime/post-contract-sync.sh\"\n  },\n  \"post-audit-log.sh\": {",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:55:10+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\registry\\hooks.json",
+    "old_string": "  \"prompt-optimizer.sh\": {\n    \"version\": \"3.1.0\",\n    \"source\": \"core/hooks/runtime/prompt-optimizer.sh\"\n  },",
+    "new_string": "  \"prompt-optimizer.sh\": {\n    \"version\": \"3.2.0\",\n    \"source\": \"core/hooks/runtime/prompt-optimizer.sh\"\n  },",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:55:21+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\settings.json",
+    "old_string": "      {\n        \"matcher\": \"Write|Edit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-code-intel.sh\\\"\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"Write|Edit|Bash\",",
+    "new_string": "      {\n        \"matcher\": \"Write|Edit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-code-intel.sh\\\"\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"Write|Edit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash \\\"${CORTEX_ROOT:-$(pwd)/.claude}/core/hooks/runtime/post-contract-sync.sh\\\"\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"Write|Edit|Bash\",",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:55:29+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\CLAUDE.md",
+    "old_string": "        post-code-intel.sh            ← PostToolUse code intelligence (v1.3.0)\n        post-error-analyzer.sh        ← PostToolUseFailure error classifier + fix suggester (v1.2.0)",
+    "new_string": "        post-code-intel.sh            ← PostToolUse code intelligence (v1.3.0)\n        post-contract-sync.sh         ← PostToolUse contract sync: test + mock data warnings (v1.0.0)\n        post-error-analyzer.sh        ← PostToolUseFailure error classifier + fix suggester (v1.2.0)",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:55:34+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\CLAUDE.md",
+    "old_string": "        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine (v3.0.0)",
+    "new_string": "        prompt-optimizer.sh           ← UserPromptSubmit structured prompt engine (v3.2.0)",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:56:00+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\CLAUDE.md",
+    "old_string": "**UserPromptSubmit** — `runtime/prompt-optimizer.sh` (v3.0.0)",
+    "new_string": "**UserPromptSubmit** — `runtime/prompt-optimizer.sh` (v3.2.0)",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:56:13+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\CLAUDE.md",
+    "old_string": "Issues accumulated as raw JSON strings; single `jq` call at the end (no per-issue jq spawn). Outputs structured JSON to stdout. Read-only; never modifies files.\n\n**PostToolUse (`Write|Edit|Bash`)** — `runtime/post-audit-log.sh` (v1.3.0)",
+    "new_string": "Issues accumulated as raw JSON strings; single `jq` call at the end (no per-issue jq spawn). Outputs structured JSON to stdout. Read-only; never modifies files.\n\n**PostToolUse (`Write|Edit`)** — `runtime/post-contract-sync.sh` (v1.0.0)\nFires after every file write. Detects contract-type files (filename suffix: `Dto|Request|Response|Command|Query|Schema|Model|Entity|Contract|Payload|ViewModel`; or controller route decorators in content). For each detected contract: (1) checks for a co-named test file (`*Tests.*`, `*.test.*`, `*.spec.*`, `*_test.*`) and warns with a concrete suggestion if absent; (2) if the project uses mock/fixture/example files, strips the contract suffix to derive the entity base name, searches for mock files referencing it, and warns if none are found. Guard: mock check only fires when the project already has at least one mock/fixture/example file — prevents false alerts in projects with no frontend mock layer. Outputs structured JSON to stdout. Always exits 0; read-only; never modifies files.\n\n**PostToolUse (`Write|Edit|Bash`)** — `runtime/post-audit-log.sh` (v1.3.0)",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:56:19+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\CLAUDE.md",
+    "old_string": "| `/pr-check` | `--branch=<name>` `--staged` `--skip-build` `--skip-tests` | Simulates PR validation — build, format, security, architecture, commit messages, test coverage |",
+    "new_string": "| `/pr-check` | `--branch=<name>` `--staged` `--skip-build` `--skip-tests` | Simulates PR validation — build, format, security, architecture, commit messages, test coverage, frontend mock data coverage |",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:56:25+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\CLAUDE.md",
+    "old_string": "**`/pr-check`** — runs 6 checks in sequence: build (blocks on failure), format (warns), security scan (blocks on any finding), architecture (blocks on structural violations), conventional commit validation (blocks on Claude attribution), test presence (warns). Reports ACCEPTED / WARNING / REJECTED.",
+    "new_string": "**`/pr-check`** — runs 8 checks in sequence: build (blocks on failure), format (warns), security scan (blocks on any finding), architecture (blocks on structural violations), conventional commit validation (blocks on Claude attribution), test presence (warns), frontend mock/example data coverage for contract files (warns when project uses mocks but a changed contract has no mock). Reports ACCEPTED / WARNING / REJECTED.",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:56:35+04:00",
+  "tool": "Bash",
+  "input": {
+    "command": "echo \"=== hook file ===\" && head -5 \".claude/core/hooks/runtime/post-contract-sync.sh\" && echo \"\" && echo \"=== settings wired ===\" && grep -A3 \"post-contract-sync\" \".claude/settings.json\" && echo \"\" && echo \"=== registry entry ===\" && grep -A2 \"post-contract-sync\" \".claude/registry/hooks.json\" && echo \"\" && echo \"=== prompt-optimizer version ===\" && grep \"@version\" \".claude/core/hooks/runtime/prompt-optimizer.sh\" | head -1 && echo \"\" && echo \"=== optimizer aliases (dto/mock) ===\" && grep 'dto\\|mock\\|contract\\|schema' \".claude/core/hooks/runtime/prompt-optimizer.sh\" | grep '\\[\"' && echo \"\" && echo \"=== optimizer guidance injection ===\" && grep -A4 \"_TEST_MOCK_GUIDANCE\" \".claude/core/hooks/runtime/prompt-optimizer.sh\" | head -8",
+    "description": "Verify all wiring: hook file, settings.json, registry, optimizer version, new aliases, guidance injection"
+  }
+}
+{"time":"2026-04-27T13:57:31+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-27T13:57:45+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\session-start.sh",
+    "old_string": "# Prune scan cache entries using TTL from config (default 30 days)\nSCAN_TTL_DAYS=$(cortex_config '.cache.scanTtlDays' '30')\n[[ \"$SCAN_TTL_DAYS\" =~ ^[0-9]+$ ]] || SCAN_TTL_DAYS=30\nfind \"$SCAN_CACHE\" -type f -mtime \"+${SCAN_TTL_DAYS}\" -delete 2>/dev/null || true\n\n# Remove zero-byte or corrupt cache entries (self-healing)\nfind \"$SCAN_CACHE\" -type f -empty -delete 2>/dev/null || true",
+    "new_string": "# Prune scan cache: TTL-expired + zero-byte/corrupt entries in a single pass\nSCAN_TTL_DAYS=$(cortex_config '.cache.scanTtlDays' '30')\n[[ \"$SCAN_TTL_DAYS\" =~ ^[0-9]+$ ]] || SCAN_TTL_DAYS=30\nfind \"$SCAN_CACHE\" -type f \\( -mtime \"+${SCAN_TTL_DAYS}\" -o -empty \\) -delete 2>/dev/null || true",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:58:46+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\post-code-intel.sh",
+    "old_string": "#!/usr/bin/env bash\n# @version: 1.3.0",
+    "new_string": "#!/usr/bin/env bash\n# @version: 1.4.0",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:58:52+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\post-code-intel.sh",
+    "old_string": "  opens=$(echo \"$line\" | tr -cd '{' | wc -c)\n  closes=$(echo \"$line\" | tr -cd '}' | wc -c)",
+    "new_string": "  _t=\"${line//[^{]}\"; opens=${#_t}\n  _t=\"${line//[^}]}\"; closes=${#_t}",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T13:59:02+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\post-code-intel.sh",
+    "old_string": "    if echo \"$line\" | grep -qE \\\n      '(^\\s*(public|private|protected|internal|static|async|override|virtual)\\s+.*\\(|^\\s*function\\s+\\w+\\s*\\(|^\\s*\\w+\\s*\\(.*\\)\\s*\\{|=>.*\\{)'; then",
+    "new_string": "    if grep -qE \\\n      '(^\\s*(public|private|protected|internal|static|async|override|virtual)\\s+.*\\(|^\\s*function\\s+\\w+\\s*\\(|^\\s*\\w+\\s*\\(.*\\)\\s*\\{|=>.*\\{)' \\\n      <<< \"$line\"; then",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-27T14:00:03+04:00","tool":"Write","input":{}}
+{"time":"2026-04-27T14:00:56+04:00","tool":"Write","input":{}}
+{
+  "time": "2026-04-27T14:02:31+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\prompt-optimizer.sh",
+    "old_string": "  prompt=$(echo \"$prompt\" | sed 's/[[:space:]]*--y[[:space:]]*$//' | sed 's/[[:space:]]*--y[[:space:]]/ /g' | xargs)",
+    "new_string": "  prompt=$(sed -e 's/[[:space:]]*--y[[:space:]]*$//' -e 's/[[:space:]]*--y[[:space:]]/ /g' <<< \"$prompt\" | xargs)",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-27T14:02:38+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-27T14:02:48+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\prompt-optimizer.sh",
+    "old_string": "if [[ \"$intent\" == \"feature_request\" ]] && \\\n   echo \"$prompt_lower\" | grep -qE '\\b(api|endpoint|dto|service|repository|controller|schema|contract|model|entity|request|response|command|query|test|mock|fixture)\\b'; then",
+    "new_string": "if [[ \"$intent\" == \"feature_request\" ]] && \\\n   grep -qE '\\b(api|endpoint|dto|service|repository|controller|schema|contract|model|entity|request|response|command|query|test|mock|fixture)\\b' <<< \"$prompt_lower\"; then",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T14:02:59+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\prompt-optimizer.sh",
+    "old_string": "echo \"$prompt_lower\" | grep -qE '\\b(test|spec|migration|generated|generate|fixture)\\b' \\\n  && _targets_noise=1",
+    "new_string": "grep -qE '\\b(test|spec|migration|generated|generate|fixture)\\b' <<< \"$prompt_lower\" \\\n  && _targets_noise=1",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T14:03:06+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\core\\hooks\\runtime\\prompt-optimizer.sh",
+    "old_string": "done < <(echo \"$prompt\" | grep -oE '[A-Za-z0-9_/.-]+\\.(cs|ts|tsx|js|jsx|py|go|rs|java)(:[0-9]+)?' 2>/dev/null | head -5)",
+    "new_string": "done < <(grep -oE '[A-Za-z0-9_/.-]+\\.(cs|ts|tsx|js|jsx|py|go|rs|java)(:[0-9]+)?' <<< \"$prompt\" 2>/dev/null | head -5)",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-27T14:03:35+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-27T14:03:50+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\doctor.md",
+    "old_string": "### CHECK 5 — Hook version validation\n\nFor each hook in hooks.json:\n\na. Read the source file at `$CORTEX_DIR/<source>`. Locate `^# @version:` (line 1 or 2). Extract the version. If absent, treat as `0.0.0`:\n```\nTYPE: WARNING\nTITLE: Hook missing version tag: <hook-name>\nDETAILS: $CORTEX_DIR/<source> has no '# @version: X.Y.Z' line\nWHY: /init-cortex cannot perform version-aware tracking\nFIX: add '# @version: X.Y.Z' on line 2 of <source>\n```\n\nb. Compare the source `# @version:` against the version in hooks.json:\n- source > registry:\n```\nTYPE: WARNING\nTITLE: Hook version not synced in registry: <hook-name>\nDETAILS: source version <src_ver> is newer than registry version <reg_ver>\nWHY: /init-cortex version checks will be inaccurate — the hook may appear current when it isn't\nFIX: update hooks.json version for <hook-name> to <src_ver>\n```\n- source < registry:\n```\nTYPE: WARNING\nTITLE: Registry version ahead of source: <hook-name>\nDETAILS: registry version <reg_ver> is newer than source file version <src_ver>\nWHY: registry may reflect intended version before source was updated\nFIX: bump the # @version: tag in $CORTEX_DIR/<source> to match hooks.json\n```\n\nc. Check `stop-build.sh` exists at `$HOOKS_SRC/runtime/stop-build.sh`:\n```\nTYPE: ERROR\nTITLE: stop-build.sh missing\nDETAILS: $HOOKS_SRC/runtime/stop-build.sh does not exist\nWHY: the Stop hook will fail silently — build errors will not be reported after session end\nFIX: restore stop-build.sh from the Cortex source repository\n```\n\n### CHECK 6 — settings.json wiring",
+    "new_string": "### CHECK 5 — settings.json wiring",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-27T14:04:28+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-27T14:05:19+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\impact.md",
+    "old_string": "Then print:\n\n```\nWHY:\n<single technical paragraph — no vague statements>\n\nFIX:\n<single deterministic recommendation>\n```\n\n---\n\n## CONSTRAINTS\n\n- Never state a dependency without a Grep result confirming it\n- Never claim an endpoint is affected without tracing the call chain\n- Never assign HIGH risk based on file count alone — use the decision table\n- Never output multiple FIX options\n- Never include files outside `CHANGED_FILES` in the Files Changed count",
+    "new_string": "Then print:\n\n```\nWHY:\n<single technical paragraph — no vague statements>\n\nFIX:\n<single deterministic recommendation>\n```\n\n---\n\n## CONSTRAINTS\n\n- Never state a dependency without a Grep result confirming it\n- Never claim an endpoint is affected without tracing the call chain\n- Never assign HIGH risk based on file count alone — use the risk decision table\n- Never output multiple FIX options\n- Never include files outside `CHANGED_FILES` in the Files Changed count",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-27T14:06:15+04:00","tool":"Edit","input":{}}
+{"time":"2026-04-27T14:08:20+04:00","tool":"Edit","input":{}}
+{"time":"2026-04-27T14:08:40+04:00","tool":"Edit","input":{}}
+{"time":"2026-04-27T14:08:47+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-27T14:08:54+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\pattern-drift.md",
+    "old_string": "## STEP 7 — Generate WHY explanation per deviation\n\nFor each deviation, produce one sentence explaining:\n- What the dominant pattern is and how many files follow it\n- What the changed file does instead\n- Why the inconsistency hurts maintainability (e.g., \"breaks uniform dependency resolution\", \"makes consumer code unable to mock this component\")\n\nCite the `example_file` from Step 4 as the reference implementation.\n\n---\n\n## STEP 8 — Generate FIX per deviation\n\nFor each deviation, provide ONE exact change to align with the dominant pattern:\n- Name the specific line or block to change\n- State what it should be changed to (citing the dominant value)\n- Do NOT provide multiple options\n\n---\n\n## OUTPUT",
+    "new_string": "## STEP 7 — Generate WHY and FIX per deviation\n\nFor each deviation, produce one sentence explaining:\n- What the dominant pattern is and how many files follow it\n- What the changed file does instead\n- Why the inconsistency hurts maintainability (e.g., \"breaks uniform dependency resolution\", \"makes consumer code unable to mock this component\")\n\nCite the `example_file` from Step 4 as the reference implementation.\n\nThen provide ONE exact change to align with the dominant pattern:\n- Name the specific line or block to change\n- State what it should be changed to (citing the dominant value)\n- Do NOT provide multiple options\n\n---\n\n## OUTPUT",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T14:08:57+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\overengineering-check.md",
+    "old_string": "## STEP 6 — Generate WHY explanation\n\nFor each finding, produce one paragraph:\n- State what the pattern is and where it appears (file + construct name)\n- Explain the concrete cost: what does this complexity make harder? (reading, testing, extending, tracing)\n- Cite evidence: line count, Grep result count (implementations, callers), property overlap percentage\n- No subjective language (\"ugly\", \"messy\", \"bad\") — only structural and maintainability arguments\n\n---\n\n## STEP 7 — Generate FIX instruction\n\nFor each finding, provide ONE specific structural instruction:\n- Name the exact construct to remove or collapse\n- State what it should be replaced with (inline the logic, remove the layer, merge the files)\n- Do NOT provide alternatives\n- If simplification is UNSAFE: state exactly what cross-file changes are needed before it becomes safe\n\n---\n\n## OUTPUT",
+    "new_string": "## STEP 6 — Generate WHY and FIX\n\nFor each finding, produce one paragraph:\n- State what the pattern is and where it appears (file + construct name)\n- Explain the concrete cost: what does this complexity make harder? (reading, testing, extending, tracing)\n- Cite evidence: line count, Grep result count (implementations, callers), property overlap percentage\n- No subjective language (\"ugly\", \"messy\", \"bad\") — only structural and maintainability arguments\n\nThen provide ONE specific structural instruction:\n- Name the exact construct to remove or collapse\n- State what it should be replaced with (inline the logic, remove the layer, merge the files)\n- Do NOT provide alternatives\n- If simplification is UNSAFE: state exactly what cross-file changes are needed before it becomes safe\n\n---\n\n## OUTPUT",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-27T14:11:14+04:00","tool":"Edit","input":{}}
+{
+  "time": "2026-04-27T14:11:31+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\init-cortex.md",
+    "old_string": "---\n\n## STEP 7 — Validate hook registry consistency\n\nFor each hook in hooks.json, verify the version in hooks.json matches the `# @version:` tag in the source file.\n\nIf mismatched:\n```\nTYPE: WARNING\nTITLE: Registry version mismatch: <hook-name>\nDETAILS: hooks.json declares <registry_ver> but source file contains <source_ver>\nWHY: version tracking is inaccurate — /doctor version checks will be unreliable\nFIX: update the version field for <hook-name> in hooks.json to match the source file\n```\n\nAlso verify each hook sources bootstrap.sh, not an inline CORTEX_ROOT block:\n```bash\nsource \"${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh\" || exit 0\n```\n\nIf a hook still has the old inline `if [ -z \"$CORTEX_ROOT\" ]` block:\n```\nTYPE: WARNING\nTITLE: Hook not using bootstrap: <hook-name>\nDETAILS: <hook-name> has an inline CORTEX_ROOT resolution block instead of sourcing bootstrap.sh\nWHY: bootstrap.sh is the single source of truth — inline blocks will diverge\nFIX: replace the inline block with: source \"${CORTEX_ROOT:-$(pwd)/.claude}/core/shared/bootstrap.sh\" || exit 0\n```\n\n---\n\n## OUTPUT",
+    "new_string": "---\n\n## OUTPUT",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T14:12:09+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\commands\\init-cortex.md",
+    "old_string": "[HOOKS]\n  <hook-name>    OK | WARNING    source: <ver> registry: <ver>\n  ...\n\n[SETTINGS]\n  $CORTEX_ROOT/settings.json    OK | MISSING | INCOMPLETE\n  <if INCOMPLETE: list each missing hook entry>\n\n[COMMANDS]\n  <command>    OK | ERROR\n  ...\n\n[SCANNERS]\n  <ext>/<scanner>    OK | WARNING\n  ...\n\n[REGISTRY CONSISTENCY]\n  <hook-name>    OK | WARNING <detail>\n  ...",
+    "new_string": "[HOOKS]\n  <hook-name>    OK | WARNING | ERROR    source: <ver> registry: <ver>    bootstrap: OK | WARN\n  ...\n\n[SETTINGS]\n  $CORTEX_ROOT/settings.json    OK | MISSING | INCOMPLETE\n  <if INCOMPLETE: list each missing hook entry>\n\n[COMMANDS]\n  <command>    OK | ERROR\n  ...\n\n[SCANNERS]\n  <ext>/<scanner>    OK | WARNING\n  ...",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T14:12:16+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\registry\\hooks.json",
+    "old_string": "  \"permission-request.sh\": {\n    \"version\": \"1.2.0\",\n    \"source\": \"core/hooks/guards/permission-request.sh\"\n  },\n  \"permission-denied.sh\": {\n    \"version\": \"1.2.0\",\n    \"source\": \"core/hooks/guards/permission-denied.sh\"\n  },",
+    "new_string": "  \"permission-request.sh\": {\n    \"version\": \"1.3.0\",\n    \"source\": \"core/hooks/guards/permission-request.sh\"\n  },\n  \"permission-denied.sh\": {\n    \"version\": \"1.3.0\",\n    \"source\": \"core/hooks/guards/permission-denied.sh\"\n  },",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T14:17:40+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\registry\\hooks.json",
+    "old_string": "  \"post-code-intel.sh\": {\n    \"version\": \"1.3.0\",\n    \"source\": \"core/hooks/runtime/post-code-intel.sh\"\n  },",
+    "new_string": "  \"post-code-intel.sh\": {\n    \"version\": \"1.4.0\",\n    \"source\": \"core/hooks/runtime/post-code-intel.sh\"\n  },",
+    "replace_all": false
+  }
+}
+{
+  "time": "2026-04-27T14:17:52+04:00",
+  "tool": "Edit",
+  "input": {
+    "file_path": "c:\\Users\\subhan.amiraslanov\\Desktop\\Cortex\\.claude\\registry\\hooks.json",
+    "old_string": "  \"notification.sh\": {\n    \"version\": \"1.1.0\",\n    \"source\": \"core/hooks/runtime/notification.sh\"\n  },",
+    "new_string": "  \"notification.sh\": {\n    \"version\": \"1.2.0\",\n    \"source\": \"core/hooks/runtime/notification.sh\"\n  },",
+    "replace_all": false
+  }
+}
+{"time":"2026-04-28T10:42:57+04:00","tool":"Write","input":{}}
+{"time":"2026-04-28T10:43:15+04:00","tool":"Write","input":{}}
