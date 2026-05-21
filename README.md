@@ -173,6 +173,23 @@ The earlier analyzer commands and the `/init-cortex` / `/update-cortex` slash co
 
 ---
 
+## MCP servers (optional)
+
+Claude Code can be wired to project-scoped MCP servers via `.claude/.mcp.json`. Registering them one at a time from the project root is the most inspectable approach — each command writes a single entry to the file, so each addition produces a reviewable diff:
+
+```bash
+claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
+claude mcp add --scope project git        -- uvx mcp-server-git --repository "$PWD"
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
+claude mcp add --scope project docker     -- uvx docker-mcp
+```
+
+PowerShell: replace `$PWD` with `(Get-Location).Path` and `${VAR}` with `$env:VAR`. Requires `uv` (for `uvx`), Docker Desktop running for the `docker` server, and `CORTEX_PG_URL` / `FIGMA_API_KEY` exported before Claude Code launches. After registration, restart Claude Code and verify with `/mcp`.
+
+---
+
 ## Install flow
 
 Whichever path you pick, the same thing happens under the hood:

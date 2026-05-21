@@ -117,7 +117,7 @@ Cortex v4.0.0 │ Opus 4.7 │ ⏱ 0s
   ─────────────────────────────────────────────────────
   🪝 Hooks 28/28    📜 Commands 4/4    🔎 Scanners 14    🛡️ Risk 30/70
   💾 Memory 17KB    📨 Events 0    📂 Indexed 0    📑 Audit 0    🧠 Context 0%
-  📊 Tests 0 (~0 cases)    🗂️ Plans 0    🌿 main clean
+  📊 Tests 0 (~0 cases)    🗂️ Plans 0    🤖 MCP 0/0    🌿 main clean
 ```
 If you only see a single `│ Cortex │ —` fallback line, something failed bootstrap — most often a missing `jq` or a wrong `CORTEX_ROOT`. Inspect with:
 ```bash
@@ -128,6 +128,32 @@ bash .claude/core/statusline/render.sh < /dev/null
 ```bash
 bash .claude/test/run.sh
 ```
+
+---
+
+## MCP servers (optional)
+
+Cortex itself does not require MCP servers, but Claude Code can be wired to project-scoped MCP servers via `.claude/.mcp.json`. The most inspectable way is to register them one at a time from the project root — each command writes a single entry to `.claude/.mcp.json`, so you can review the diff between additions:
+
+```bash
+claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
+claude mcp add --scope project git        -- uvx mcp-server-git --repository "$PWD"
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
+claude mcp add --scope project docker     -- uvx docker-mcp
+```
+
+PowerShell users: substitute `$PWD` with `(Get-Location).Path` and `${VAR}` with `$env:VAR`.
+
+Prerequisites: `uv` on PATH for the `uvx` launches (`winget install astral-sh.uv` or `pip install uv`), Docker Desktop running for the `docker` server, and the two secrets exported before launching Claude Code:
+
+```powershell
+[Environment]::SetEnvironmentVariable('CORTEX_PG_URL', 'postgres://user:pass@localhost:5432/your_db', 'User')
+[Environment]::SetEnvironmentVariable('FIGMA_API_KEY', 'figd_xxx...', 'User')
+```
+
+After registration, restart Claude Code and run `/mcp` — all six should report `connected`. The first session in a project triggers a one-time trust prompt for the checked-in `.mcp.json`.
 
 ---
 

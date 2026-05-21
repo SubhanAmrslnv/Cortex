@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @version: 2.0.0
+# @version: 2.1.0
 # Cortex status line — Cortex-native project dashboard.
 # Reads Claude Code's session JSON from stdin and emits real-time metrics on
 # stdout. Never fails loudly: any error renders a one-line fallback and exits 0.
@@ -130,6 +130,41 @@ if [[ -f "$CORTEX_ROOT/project/memory/plans.json" ]]; then
   [[ "$plans_count" =~ ^[0-9]+$ ]] || plans_count=0
 fi
 
+# ── MCP servers (enabled / configured) ───────────────────────────────────────
+# Checks .claude/.mcp.json then <project_root>/.mcp.json. "Enabled" means every
+# ${VAR} reference in the server's args/env is currently set in the environment;
+# unresolved vars would make the server fail to launch.
+mcp_total=0; mcp_enabled=0
+mcp_file=""
+for candidate in "$CORTEX_ROOT/.mcp.json" "$(dirname "$CORTEX_ROOT")/.mcp.json"; do
+  if [[ -f "$candidate" ]] && [[ "$(jq -r '.mcpServers // empty | type' "$candidate" 2>/dev/null)" == "object" ]]; then
+    mcp_file="$candidate"
+    break
+  fi
+done
+if [[ -n "$mcp_file" ]]; then
+  mcp_total=$(g '.mcpServers | keys | length' "$mcp_file")
+  [[ "$mcp_total" =~ ^[0-9]+$ ]] || mcp_total=0
+  if (( mcp_total > 0 )); then
+    mapfile -t _mcp_names < <(g '.mcpServers | keys[]?' "$mcp_file")
+    for srv in "${_mcp_names[@]}"; do
+      [[ -z "$srv" ]] && continue
+      refs=$(jq -r --arg s "$srv" '
+        .mcpServers[$s]
+        | [ (.args // [])[]?, ((.env // {}) | to_entries[]?.value) ]
+        | join(" ")
+      ' "$mcp_file" 2>/dev/null | tr -d '\r')
+      missing=0
+      while IFS= read -r tok; do
+        [[ -z "$tok" ]] && continue
+        var_name="${tok%%:-*}"
+        if [[ -z "${!var_name:-}" ]]; then missing=1; break; fi
+      done < <(echo "$refs" | grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*(:-[^}]*)?\}' | sed -E 's/^\$\{([^}]+)\}$/\1/')
+      (( missing == 0 )) && mcp_enabled=$(( mcp_enabled + 1 ))
+    done
+  fi
+fi
+
 # ── events queue depth ───────────────────────────────────────────────────────
 events_pending=0
 if [[ -d "$CORTEX_EVENTS" ]]; then
@@ -245,6 +280,14 @@ TESTS_HUE=$C_DIM; (( tests_count > 0 )) && TESTS_HUE=$C_GOOD
 CASE_HUE=$C_DIM;  (( tests_cases > 0 )) && CASE_HUE=$C_GOOD
 PLANS_HUE=$C_DIM; (( plans_count > 0 )) && PLANS_HUE=$C_ACCENT
 
+# MCP: dim if none configured, good if all enabled, warn if any have missing env vars.
+if   (( mcp_total == 0 ));            then MCP_HUE=$C_DIM
+elif (( mcp_enabled == mcp_total ));  then MCP_HUE=$C_GOOD
+else                                       MCP_HUE=$C_WARN
+fi
+mcp_dot="${MCP_HUE}●${C_RESET}"
+(( mcp_total == 0 )) && mcp_dot="${C_DIM}○${C_RESET}"
+
 # Status dots use the same hue as their counter for visual cohesion.
 hooks_dot="${HOOK_HUE}●${C_RESET}"
 cmds_dot="${CMD_HUE}●${C_RESET}"
@@ -282,8 +325,8 @@ printf "  ${C_LABEL}🪝 Hooks${C_RESET} %s${HOOK_HUE}%d/%d${C_RESET}    ${C_LAB
   "$scanner_count" "$risk_warn" "$risk_block"
 printf "  ${C_LABEL}💾 Memory${C_RESET} ${MEM_HUE}%s${C_RESET}    ${C_LABEL}📨 Events${C_RESET} %s${EVT_HUE}%d${C_RESET}    ${C_LABEL}📂 Indexed${C_RESET} ${IDX_HUE}%d${C_RESET}    ${C_LABEL}📑 Audit${C_RESET} ${AUD_HUE}%d${C_RESET}    ${C_LABEL}🧠 Context${C_RESET} ${CTX_HUE}%s${C_RESET}\n" \
   "$mem_human" "$events_dot" "$events_pending" "$indexed" "$audit_lines" "$context_disp"
-printf "  ${C_LABEL}📊 Tests${C_RESET} %s${TESTS_HUE}%d${C_RESET} ${C_DIM}(${C_RESET}${CASE_HUE}~%d cases${C_RESET}${C_DIM})${C_RESET}    ${C_LABEL}🗂️ Plans${C_RESET} ${PLANS_HUE}%d${C_RESET}" \
-  "$tests_dot" "$tests_count" "$tests_cases" "$plans_count"
+printf "  ${C_LABEL}📊 Tests${C_RESET} %s${TESTS_HUE}%d${C_RESET} ${C_DIM}(${C_RESET}${CASE_HUE}~%d cases${C_RESET}${C_DIM})${C_RESET}    ${C_LABEL}🗂️ Plans${C_RESET} ${PLANS_HUE}%d${C_RESET}    ${C_LABEL}🤖 MCP${C_RESET} %s${MCP_HUE}%d/%d${C_RESET}" \
+  "$tests_dot" "$tests_count" "$tests_cases" "$plans_count" "$mcp_dot" "$mcp_enabled" "$mcp_total"
 [[ -n "$git_line" ]] && printf "    ${C_LABEL}🌿${C_RESET} %s" "$git_line"
 printf "\n"
 [[ -n "$mode_line" ]] && printf "  %s\n" "$mode_line"
