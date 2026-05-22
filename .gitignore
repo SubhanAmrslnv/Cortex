@@ -5,6 +5,9 @@
 .claude/temp/
 .claude/state/
 
+# Local MCP server config (machine-specific paths)
+.mcp.json
+
 # Project memory state (session-specific; stub schemas are committed below the dirs)
 .claude/project/memory/plans/
 .claude/project/memory/plans.json
