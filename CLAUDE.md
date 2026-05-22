@@ -142,12 +142,21 @@ The status line never writes to disk and always exits 0 — bugs surface as anom
 
 Manual sparse clone — run from the project root, requires git 2.27+:
 
+**Bash (Linux / macOS / Git Bash):**
 ```bash
 git clone --depth 1 --filter=blob:none --sparse --branch main \
   https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
 git -C .cortex-tmp sparse-checkout set .claude
 cp -R .cortex-tmp/.claude .
 rm -rf .cortex-tmp
+```
+
+**PowerShell (Windows):**
+```powershell
+git clone --depth 1 --filter=blob:none --sparse --branch main https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
+git -C .cortex-tmp sparse-checkout set .claude
+Copy-Item .cortex-tmp/.claude . -Recurse -Force
+Remove-Item .cortex-tmp -Recurse -Force
 ```
 
 Re-run to update — overwrites `.claude/` wholesale, so back up user-local state under `cache/`, `logs/`, `temp/`, `state/`, and `project/memory/` first.

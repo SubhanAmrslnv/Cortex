@@ -10,12 +10,21 @@ Cortex is hook-driven, registry-extensible, and strictly local: it lives entirel
 
 Run from the project root where you want `.claude/` to land. Requires git 2.27+.
 
+**Bash (Linux / macOS / Git Bash):**
 ```bash
 git clone --depth 1 --filter=blob:none --sparse --branch main \
   https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
 git -C .cortex-tmp sparse-checkout set .claude
 cp -R .cortex-tmp/.claude .
 rm -rf .cortex-tmp
+```
+
+**PowerShell (Windows):**
+```powershell
+git clone --depth 1 --filter=blob:none --sparse --branch main https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
+git -C .cortex-tmp sparse-checkout set .claude
+Copy-Item .cortex-tmp/.claude . -Recurse -Force
+Remove-Item .cortex-tmp -Recurse -Force
 ```
 
 **Prerequisites:** `bash 4+`, `git`, `jq` (runtime).

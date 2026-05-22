@@ -9,7 +9,32 @@ This guide explains:
 3. What runs automatically when you edit files or run commands.
 4. Common diagnostics and where to look when something feels off.
 
-For installation, see `INSTALL.md`. For architecture, see `README.md`. For the rules Claude Code itself follows in this repo, see `CLAUDE.md`.
+For full installation details, see `INSTALL.md`. For architecture, see `README.md`. For the rules Claude Code itself follows in this repo, see `CLAUDE.md`.
+
+---
+
+## 0. Quick install
+
+Run from the project root where you want `.claude/` to land. Requires git 2.27+.
+
+**Bash (Linux / macOS / Git Bash):**
+```bash
+git clone --depth 1 --filter=blob:none --sparse --branch main \
+  https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
+git -C .cortex-tmp sparse-checkout set .claude
+cp -R .cortex-tmp/.claude .
+rm -rf .cortex-tmp
+```
+
+**PowerShell (Windows):**
+```powershell
+git clone --depth 1 --filter=blob:none --sparse --branch main https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
+git -C .cortex-tmp sparse-checkout set .claude
+Copy-Item .cortex-tmp/.claude . -Recurse -Force
+Remove-Item .cortex-tmp -Recurse -Force
+```
+
+Re-run to update — the manual clone overwrites `.claude/` wholesale, so back up user-local state under `cache/`, `logs/`, `temp/`, `state/`, and `project/memory/` first.
 
 ---
 
