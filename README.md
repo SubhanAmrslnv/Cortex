@@ -8,17 +8,6 @@ Cortex is hook-driven, registry-extensible, and strictly local: it lives entirel
 
 ## Installation
 
-### One-liner (curl)
-```bash
-curl -fsSL https://raw.githubusercontent.com/SubhanAmrslnv/Cortex/main/scripts/install.sh | bash
-```
-
-### Windows (PowerShell)
-```powershell
-iwr -useb https://raw.githubusercontent.com/SubhanAmrslnv/Cortex/main/scripts/install.ps1 | iex
-```
-
-### Manual git sparse clone (no installer)
 Run from the project root where you want `.claude/` to land. Requires git 2.27+.
 
 ```bash
@@ -29,23 +18,7 @@ cp -R .cortex-tmp/.claude .
 rm -rf .cortex-tmp
 ```
 
-PowerShell:
-```powershell
-git clone --depth 1 --filter=blob:none --sparse --branch main https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
-git -C .cortex-tmp sparse-checkout set .claude
-Copy-Item .cortex-tmp/.claude . -Recurse -Force
-Remove-Item .cortex-tmp -Recurse -Force
-```
-
-No-git fallback (tarball):
-```bash
-curl -fsSL https://codeload.github.com/SubhanAmrslnv/Cortex/tar.gz/refs/heads/main \
-  | tar -xz --strip-components=1 Cortex-main/.claude
-```
-
-All paths run the same flow: a shallow + sparse pull of `.claude/` from the repo, copied into the current directory. The scripted installers preserve user-local subtrees (`project/memory/`, `cache/`, `logs/`, `temp/`, `state/`) on re-runs.
-
-**Prerequisites:** `bash 4+`, `git`, `curl`, `jq` (runtime).
+**Prerequisites:** `bash 4+`, `git`, `jq` (runtime).
 
 ---
 
@@ -173,33 +146,57 @@ The earlier analyzer commands and the `/init-cortex` / `/update-cortex` slash co
 
 ---
 
-## MCP servers (optional)
+## Recommended MCP servers
 
-Claude Code can be wired to project-scoped MCP servers via `.claude/.mcp.json`. Registering them one at a time from the project root is the most inspectable approach — each command writes a single entry to the file, so each addition produces a reviewable diff:
+Claude Code can be wired to project-scoped MCP servers via `.claude/.mcp.json`. Register them one at a time from the project root — each command writes a single entry, so each addition produces a reviewable diff:
 
 ```bash
 claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
-claude mcp add --scope project git        -- uvx mcp-server-git --repository "$PWD"
-claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project git        -- npx -y @cyanheads/git-mcp-server
 claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+```
+
+PowerShell: replace `$PWD` with `(Get-Location).Path`. After registration, restart Claude Code and verify with `/mcp`.
+
+### Additional MCP servers
+
+Optional extras. Each needs the listed prerequisite:
+
+```bash
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
 claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
 claude mcp add --scope project docker     -- uvx docker-mcp
 ```
 
-PowerShell: replace `$PWD` with `(Get-Location).Path` and `${VAR}` with `$env:VAR`. Requires `uv` (for `uvx`), Docker Desktop running for the `docker` server, and `CORTEX_PG_URL` / `FIGMA_API_KEY` exported before Claude Code launches. After registration, restart Claude Code and verify with `/mcp`.
+- **postgres** — `CORTEX_PG_URL` exported before launching Claude Code.
+- **figma** — `FIGMA_API_KEY` exported before launching Claude Code.
+- **docker** — `uv` on PATH (`winget install astral-sh.uv` or `pip install uv`) and Docker Desktop running.
+
+PowerShell users substitute `${VAR}` with `$env:VAR`.
+
+### Full MCP server list
+
+Copy-paste to wire all six at once:
+
+```bash
+claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
+claude mcp add --scope project git        -- npx -y @cyanheads/git-mcp-server
+claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
+claude mcp add --scope project docker     -- uvx docker-mcp
+```
 
 ---
 
 ## Install flow
 
-Whichever path you pick, the same thing happens under the hood:
+What happens when you run the sparse clone:
 
-1. `git clone --depth 1 --sparse` the Cortex repo (default `main`) into a temp dir, materialising only `.claude/`.
-2. Copy `.claude/` into the target project. Scripted installers overlay — preserving user-local subtrees (`project/memory/`, `cache/`, `logs/`, `temp/`, `state/`). The raw manual clone overwrites wholesale.
-3. Ensure local-only directories exist (`cache/`, `logs/`, `temp/events/`, `state/`, `project/memory/plans/`).
-4. `chmod +x` every shell script under `core/` (POSIX systems).
-
-Override the source with `CORTEX_REPO_URL=...` or `CORTEX_REF=<branch|tag|sha>` when using the scripted installers.
+1. `git clone --depth 1 --sparse` the Cortex repo (default `main`) into `.cortex-tmp`, materialising only `.claude/`.
+2. Copy `.claude/` into the target project (the manual clone overwrites wholesale — back up user-local subtrees first if you're updating in place).
+3. Local-only directories (`cache/`, `logs/`, `temp/events/`, `state/`, `project/memory/plans/`) are created on first hook run.
+4. On POSIX systems, ensure `chmod +x` on every shell script under `.claude/core/`.
 
 ---
 

@@ -209,7 +209,52 @@ Changes take effect on the next turn — no restart needed.
 
 ---
 
-## 9. Uninstall
+## 9. Recommended MCP servers
+
+Cortex itself does not require MCP servers, but Claude Code can be extended with project-scoped ones via `.claude/.mcp.json`. Register them one at a time from the project root — each command writes a single entry, so each addition is a reviewable diff:
+
+```bash
+claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
+claude mcp add --scope project git        -- npx -y @cyanheads/git-mcp-server
+claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+```
+
+PowerShell users: replace `$PWD` with `(Get-Location).Path`.
+
+After registration, restart Claude Code and run `/mcp` — all three should report `connected`. The first session in a project triggers a one-time trust prompt for the checked-in `.mcp.json`.
+
+### Additional MCP servers
+
+Optional extras. Each needs the listed prerequisite:
+
+```bash
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
+claude mcp add --scope project docker     -- uvx docker-mcp
+```
+
+- **postgres** — `CORTEX_PG_URL` exported before launching Claude Code.
+- **figma** — `FIGMA_API_KEY` exported before launching Claude Code.
+- **docker** — `uv` on PATH (`winget install astral-sh.uv` or `pip install uv`) and Docker Desktop running.
+
+PowerShell users substitute `${VAR}` with `$env:VAR`.
+
+### Full MCP server list
+
+Copy-paste to wire all six at once:
+
+```bash
+claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
+claude mcp add --scope project git        -- npx -y @cyanheads/git-mcp-server
+claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
+claude mcp add --scope project docker     -- uvx docker-mcp
+```
+
+---
+
+## 10. Uninstall
 
 ```bash
 rm -rf .claude

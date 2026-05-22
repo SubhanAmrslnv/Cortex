@@ -9,9 +9,8 @@ Cortex is an event-driven, project-local AI runtime framework for [Claude Code](
 | Tool | Required | Why |
 |---|---|---|
 | `bash` 4+ | yes | All hook scripts and core logic |
-| `git` | yes | Installer clones the repo; branch protection + status-line metrics |
+| `git` 2.27+ | yes | Sparse clone of `.claude/`; branch protection + status-line metrics |
 | `jq` | yes | Every hook parses JSON via `jq`; without it hooks silently no-op at runtime |
-| `curl` | yes (curl/PowerShell paths) | Fetches `install-core.sh` |
 | [Claude Code](https://claude.ai/code) | yes | Hook + command runtime |
 
 **Install `jq`** (runtime requirement for hooks, not the installer):
@@ -31,41 +30,21 @@ winget install jqlang.jq
 
 Verify: `jq --version` and `git --version`.
 
-On Windows, use **Git Bash** (ships with [Git for Windows](https://git-scm.com/)) or WSL. PowerShell users still need bash available — the PowerShell installer wraps a bash core.
+On Windows, use **Git Bash** (ships with [Git for Windows](https://git-scm.com/)) or WSL.
 
 ---
 
 ## Install
 
-Pick one. All paths produce an identical `.claude/` under the current directory.
-
-### 1. curl (Linux / macOS / Git Bash)
-```bash
-curl -fsSL https://raw.githubusercontent.com/SubhanAmrslnv/Cortex/main/scripts/install.sh | bash
-```
-
-### 2. PowerShell (Windows)
-```powershell
-iwr -useb https://raw.githubusercontent.com/SubhanAmrslnv/Cortex/main/scripts/install.ps1 | iex
-```
-Requires bash on PATH (`Git for Windows` is enough).
-
-### 3. Manual git sparse clone (no installer)
-
 Run from the root of the project where you want `.claude/` to land.
 
-**Bash (Linux / macOS / Git Bash), requires git 2.27+:**
+**Bash (Linux / macOS / Git Bash):**
 ```bash
 git clone --depth 1 --filter=blob:none --sparse --branch main \
   https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
 git -C .cortex-tmp sparse-checkout set .claude
 cp -R .cortex-tmp/.claude .
 rm -rf .cortex-tmp
-```
-
-One-liner:
-```bash
-git clone --depth 1 --filter=blob:none --sparse --branch main https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp && git -C .cortex-tmp sparse-checkout set .claude && cp -R .cortex-tmp/.claude . && rm -rf .cortex-tmp
 ```
 
 **PowerShell (Windows):**
@@ -76,30 +55,16 @@ Copy-Item .cortex-tmp/.claude . -Recurse -Force
 Remove-Item .cortex-tmp -Recurse -Force
 ```
 
-**No-git fallback (tarball, any POSIX shell):**
-```bash
-curl -fsSL https://codeload.github.com/SubhanAmrslnv/Cortex/tar.gz/refs/heads/main \
-  | tar -xz --strip-components=1 Cortex-main/.claude
-```
-
-### Override the branch
-```bash
-curl -fsSL .../install.sh | bash -s -- --ref=feat/vnext
-```
-Or, for the manual clone, change `--branch main` to your target ref.
+To pin a different branch, tag, or SHA, change `--branch main` to your target ref.
 
 ---
 
-## What the installer does
+## What the install does
 
-1. **Sparse clone** — `git clone --depth 1 --filter=blob:none --sparse --branch main https://github.com/SubhanAmrslnv/Cortex.git` into a temp dir, then `git sparse-checkout set .claude` so only `.claude/` is materialised.
-2. **Overlay copy** — copies `.claude/` from the clone into the target project. User-local subtrees (`project/memory/`, `cache/`, `logs/`, `temp/`, `state/`) are preserved untouched if they already exist.
-3. **Local-only directories** — ensures `cache/`, `logs/`, `temp/events/`, `state/`, and `project/memory/plans/` exist under `.claude/`.
-4. **Executable bits** — `chmod +x` on every shell script under `core/` (POSIX systems).
-
-Idempotent: re-running upgrades in place. `cache/`, `logs/`, `temp/`, `state/`, and `project/memory/` are never overwritten by the installer.
-
-Override the source with `CORTEX_REPO_URL=https://github.com/<fork>/Cortex.git` or `CORTEX_REF=<branch|tag|sha>`.
+1. **Sparse clone** — `git clone --depth 1 --filter=blob:none --sparse --branch main https://github.com/SubhanAmrslnv/Cortex.git` into `.cortex-tmp`, then `git sparse-checkout set .claude` so only `.claude/` is materialised.
+2. **Copy** — `.claude/` from the clone is copied into the target project. Re-running overwrites wholesale, so back up user-local subtrees (`project/memory/`, `cache/`, `logs/`, `temp/`, `state/`) before updating in place.
+3. **Local-only directories** — `cache/`, `logs/`, `temp/events/`, `state/`, and `project/memory/plans/` are created on first hook run if they don't already exist.
+4. **Executable bits** — on POSIX systems, ensure `chmod +x` on every shell script under `.claude/core/`.
 
 ---
 
@@ -131,49 +96,69 @@ bash .claude/test/run.sh
 
 ---
 
-## MCP servers (optional)
+## Recommended MCP servers
 
-Cortex itself does not require MCP servers, but Claude Code can be wired to project-scoped MCP servers via `.claude/.mcp.json`. The most inspectable way is to register them one at a time from the project root — each command writes a single entry to `.claude/.mcp.json`, so you can review the diff between additions:
+Cortex itself does not require MCP servers, but Claude Code can be wired to project-scoped MCP servers via `.claude/.mcp.json`. Register them one at a time from the project root — each command writes a single entry, so each addition produces a reviewable diff:
 
 ```bash
 claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
-claude mcp add --scope project git        -- uvx mcp-server-git --repository "$PWD"
-claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project git        -- npx -y @cyanheads/git-mcp-server
 claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+```
+
+PowerShell users: substitute `$PWD` with `(Get-Location).Path`.
+
+After registration, restart Claude Code and run `/mcp` — all three should report `connected`. The first session in a project triggers a one-time trust prompt for the checked-in `.mcp.json`.
+
+### Additional MCP servers
+
+Optional extras. Each requires the listed prerequisite:
+
+```bash
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
 claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
 claude mcp add --scope project docker     -- uvx docker-mcp
 ```
 
-PowerShell users: substitute `$PWD` with `(Get-Location).Path` and `${VAR}` with `$env:VAR`.
+Prerequisites:
 
-Prerequisites: `uv` on PATH for the `uvx` launches (`winget install astral-sh.uv` or `pip install uv`), Docker Desktop running for the `docker` server, and the two secrets exported before launching Claude Code:
+- **postgres** — `CORTEX_PG_URL` exported before launching Claude Code.
+- **figma** — `FIGMA_API_KEY` exported before launching Claude Code.
+- **docker** — `uv` on PATH (`winget install astral-sh.uv` or `pip install uv`) and Docker Desktop running.
+
+PowerShell users substitute `${VAR}` with `$env:VAR`. Example:
 
 ```powershell
 [Environment]::SetEnvironmentVariable('CORTEX_PG_URL', 'postgres://user:pass@localhost:5432/your_db', 'User')
 [Environment]::SetEnvironmentVariable('FIGMA_API_KEY', 'figd_xxx...', 'User')
 ```
 
-After registration, restart Claude Code and run `/mcp` — all six should report `connected`. The first session in a project triggers a one-time trust prompt for the checked-in `.mcp.json`.
+### Full MCP server list
+
+Copy-paste to wire all six at once:
+
+```bash
+claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
+claude mcp add --scope project git        -- npx -y @cyanheads/git-mcp-server
+claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
+claude mcp add --scope project docker     -- uvx docker-mcp
+```
 
 ---
 
 ## Update
 
-Re-run any of the install paths — they are idempotent.
+Re-run the sparse clone — it overwrites `.claude/` wholesale, so back up user-local state under `.claude/cache/`, `.claude/logs/`, `.claude/temp/`, `.claude/state/`, and `.claude/project/memory/` first.
 
 ```bash
-# curl
-curl -fsSL https://raw.githubusercontent.com/SubhanAmrslnv/Cortex/main/scripts/install.sh | bash
-
-# Manual sparse clone (overwrite in place)
 git clone --depth 1 --filter=blob:none --sparse --branch main \
   https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
 git -C .cortex-tmp sparse-checkout set .claude
 cp -R .cortex-tmp/.claude .
 rm -rf .cortex-tmp
 ```
-
-Updates via the scripted installers touch only the framework files. Anything under `.claude/cache/`, `.claude/logs/`, `.claude/temp/`, `.claude/state/`, and `.claude/project/memory/` is preserved. The raw manual clone overwrites `.claude/` wholesale — back up user-local state first if you go that route.
 
 ---
 

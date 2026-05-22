@@ -140,28 +140,54 @@ The status line never writes to disk and always exits 0 — bugs surface as anom
 
 ## Install / Update / Validate
 
-Four supported paths, all idempotent and identical in effect. Pick what's available:
+Manual sparse clone — run from the project root, requires git 2.27+:
 
 ```bash
-# 1. curl (Linux / macOS / Git Bash)
-curl -fsSL https://raw.githubusercontent.com/SubhanAmrslnv/Cortex/main/scripts/install.sh | bash
-
-# 2. PowerShell (Windows)
-iwr -useb https://raw.githubusercontent.com/SubhanAmrslnv/Cortex/main/scripts/install.ps1 | iex
-
-# 3. Manual sparse clone (no installer)
 git clone --depth 1 --filter=blob:none --sparse --branch main \
-  https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp \
-  && git -C .cortex-tmp sparse-checkout set .claude \
-  && cp -R .cortex-tmp/.claude . && rm -rf .cortex-tmp
-
-# 4. npx (wraps the curl flow; requires Node 18+, bash, git)
-npx @subhanamrslnv/cortex-cli init
-npx @subhanamrslnv/cortex-cli update
-npx @subhanamrslnv/cortex-cli doctor
+  https://github.com/SubhanAmrslnv/Cortex.git .cortex-tmp
+git -C .cortex-tmp sparse-checkout set .claude
+cp -R .cortex-tmp/.claude .
+rm -rf .cortex-tmp
 ```
 
+Re-run to update — overwrites `.claude/` wholesale, so back up user-local state under `cache/`, `logs/`, `temp/`, `state/`, and `project/memory/` first.
+
 Full details, prerequisites, and troubleshooting are in `INSTALL.md`. The in-Claude `/init-cortex` and `/update-cortex` slash commands were removed in vNext.
+
+---
+
+## Recommended MCP servers
+
+Project-scoped, registered into `.claude/.mcp.json` one at a time:
+
+```bash
+claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
+claude mcp add --scope project git        -- npx -y @cyanheads/git-mcp-server
+claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+```
+
+PowerShell: replace `$PWD` with `(Get-Location).Path`. After registration, restart Claude Code and verify with `/mcp`.
+
+### Additional MCP servers
+
+Optional extras. Each needs the listed prerequisite (`CORTEX_PG_URL` / `FIGMA_API_KEY` exported before Claude Code launches; `uv` on PATH and Docker Desktop running for docker):
+
+```bash
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
+claude mcp add --scope project docker     -- uvx docker-mcp
+```
+
+### Full MCP server list
+
+```bash
+claude mcp add --scope project filesystem -- npx -y @modelcontextprotocol/server-filesystem "$PWD"
+claude mcp add --scope project git        -- npx -y @cyanheads/git-mcp-server
+claude mcp add --scope project playwright -- npx -y @playwright/mcp@latest
+claude mcp add --scope project postgres   -- npx -y @henkey/postgres-mcp-server --connection-string "${CORTEX_PG_URL}"
+claude mcp add --scope project figma --env FIGMA_API_KEY="${FIGMA_API_KEY}" -- npx -y figma-developer-mcp --stdio
+claude mcp add --scope project docker     -- uvx docker-mcp
+```
 
 ---
 
